@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1c130d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Sourdough">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <title>Sourdough, planned backwards</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg" id="bgA"></div>
+  <div class="bg" id="bgB"></div>
+  <div class="veil" id="veil"></div>
+
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" data-lang="en" aria-pressed="true">EN</button>
+    <span aria-hidden="true">·</span>
+    <button type="button" data-lang="it" aria-pressed="false">IT</button>
+  </div>
+
+  <!-- SETUP -->
+  <main id="view-home" class="screen">
+    <div class="stack">
+      <p class="eyebrow" data-i18n="home.eyebrow"></p>
+      <h1 data-i18n="home.title"></h1>
+      <p class="serif lede" data-i18n="home.lede"></p>
+
+      <form id="form" autocomplete="off">
+        <label class="field">
+          <span class="label" data-i18n="home.ready"></span>
+          <input type="datetime-local" id="target" step="900" required>
+        </label>
+
+        <div class="startnow">
+          <button type="button" id="startNowBtn" class="link"><span data-i18n="home.startNow"></span> <i aria-hidden="true">→</i></button>
+          <div id="startNowOut" class="startnow-out" hidden>
+            <p class="serif" id="startNowText"></p>
+            <button type="button" id="startNowGo" class="cta small" data-i18n="home.startNowGo"></button>
+          </div>
+        </div>
+
+        <fieldset class="field">
+          <legend class="label" data-i18n="home.feeds"></legend>
+          <div id="presets" class="presets"></div>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend class="label" data-i18n="home.dough"></legend>
+          <div id="methods" class="presets"></div>
+        </fieldset>
+
+        <button type="button" id="detailsBtn" class="link" aria-expanded="false"><span data-i18n="home.details"></span> <i aria-hidden="true">+</i></button>
+        <div id="details" class="details" hidden>
+          <label class="field">
+            <span class="label"><span data-i18n="home.temp"></span> <b id="tempOut">22</b> °C</span>
+            <input type="range" id="temp" min="16" max="30" step="1" value="22">
+            <span class="hint" data-i18n="home.tempHint"></span>
+          </label>
+          <div class="field">
+            <label class="switch">
+              <input type="checkbox" id="quietOn" checked>
+              <span class="trk" aria-hidden="true"></span>
+              <span data-i18n="home.quiet"></span>
+            </label>
+            <div id="quietRow" class="quiet-row">
+              <label><span data-i18n="home.from"></span> <input type="time" id="quietStart" value="23:00" step="900"></label>
+              <label><span data-i18n="home.to"></span> <input type="time" id="quietEnd" value="07:00" step="900"></label>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="cta" data-i18n="home.plan"></button>
+      </form>
+    </div>
+  </main>
+
+  <!-- NOW -->
+  <main id="view-now" class="screen" hidden>
+    <div class="stack center">
+      <p class="eyebrow" id="nowEyebrow"></p>
+      <p class="serif step-name" id="nowName"></p>
+      <div class="digits" id="digits" aria-live="off">
+        <div><span id="d1">00</span><small id="u1"></small></div>
+        <i>:</i>
+        <div><span id="d2">00</span><small id="u2"></small></div>
+        <i>:</i>
+        <div><span id="d3">00</span><small id="u3"></small></div>
+      </div>
+      <p class="sub" id="nowSub"></p>
+      <div class="track"><i id="trackFill"></i></div>
+      <p class="sub small" id="nowProgress"></p>
+      <div class="howto" id="nowHow" hidden>
+        <p id="nowInstr"></p>
+        <p class="serif" id="nowSignal"></p>
+      </div>
+      <div class="row">
+        <button type="button" class="cta" id="nowDone" data-i18n="now.done" hidden></button>
+        <button type="button" class="ghost" id="toPlan" data-i18n="now.plan"></button>
+        <button type="button" class="ghost" id="toHome" data-i18n="now.edit"></button>
+      </div>
+    </div>
+  </main>
+
+  <!-- PLAN -->
+  <main id="view-plan" class="screen scroll" hidden>
+    <div class="plan-wrap">
+      <button type="button" class="ghost back" id="back" data-i18n="plan.back"></button>
+      <p class="eyebrow" data-i18n="plan.eyebrow"></p>
+      <h2 id="planTitle"></h2>
+      <p class="serif lede" id="planSub"></p>
+      <div id="notices"></div>
+      <ol id="timeline" class="timeline"></ol>
+      <div class="foot">
+        <button type="button" class="cta small" id="icsBtn" data-i18n="plan.calendar"></button>
+        <button type="button" class="ghost" id="reset" data-i18n="plan.reset"></button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="bottom" id="bottom">
+    <p class="quote" id="quote"><q></q><cite></cite></p>
+    <p class="credit" id="credit"></p>
+  </footer>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="i18n.js"></script>
+  <script src="ics.js"></script>
+  <script src="recipe.js"></script>
+  <script src="planner.js"></script>
+  <script src="images.js"></script>
+  <script src="quotes.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    }
+  </script>
+</body>
+</html>
