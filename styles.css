@@ -202,3 +202,28 @@ body[data-view="plan"] .bottom::before { -webkit-mask-image: none; mask-image: n
   .seg { gap: 6px; }
   .seg span { padding: 8px 12px; }
 }
+
+/* help button and intro */
+.help { position: fixed; z-index: 4; top: calc(12px + env(safe-area-inset-top)); left: 16px; width: 36px; height: 36px; border-radius: 50%; padding: 0; font-size: 1rem; font-weight: 500;
+        color: var(--ink); background: var(--panel); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border: 1px solid var(--line-soft); }
+.help:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lead { margin: 0 0 var(--gap); color: var(--ink-soft); max-width: 36ch; }
+.points { list-style: none; counter-reset: p; margin: 0 0 24px; padding: 0; display: grid; gap: 14px; }
+.points li { counter-increment: p; position: relative; padding-left: 40px; line-height: 1.4; }
+.points li::before { content: counter(p); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--accent); color: var(--accent); display: grid; place-items: center; font-size: .85rem; font-weight: 600; }
+#view-intro .cta { width: 100%; padding: 17px; }
+body[data-view="intro"] .quote { display: none; }
+
+/* "now" screen: the day and time of the next step, nothing ticking */
+.when { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 16px 0 14px; }
+.when-day { color: var(--ink-soft); font-size: var(--fs-body); }
+.when-time { font-size: calc(var(--fs-num) * 1.5); font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+#icsHelp { margin: 8px 0 0; max-width: 34ch; text-align: center; }
+
+/* photo credit: one readable line */
+.credit { color: var(--ink); opacity: .85; font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 600px) and (orientation: portrait) {
+  .screen:not(.scroll) { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  #view-now { padding-bottom: calc(176px + env(safe-area-inset-bottom)); }
+  .bottom { padding-top: 24px; }
+}

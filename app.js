@@ -98,7 +98,7 @@
       prev.classList.remove('show');
       bgIdx = 1 - bgIdx;
       applyPalette(img);
-      $('#credit').textContent = t('credit.photo') + ': ' + img.title + ' · ' + img.credit;
+      $('#credit').textContent = img.title + ' · ' + img.credit;
     };
     pre.src = file;
   }
@@ -138,6 +138,7 @@
     document.title = t('home.title');
     document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.dataset.i18n); });
     document.querySelectorAll('.lang button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.lang === I18n.get())); });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function (el) { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
     renderChoices();
     refreshQuoteLang();
     if (currentImg) setBackdrop(currentImg, true);
@@ -150,9 +151,10 @@
   function show(v) {
     view = v; S.view = v; save();
     document.body.dataset.view = v;
-    ['home', 'now', 'plan'].forEach(function (n) { $('#view-' + n).hidden = n !== v; });
+    ['intro', 'home', 'now', 'plan'].forEach(function (n) { $('#view-' + n).hidden = n !== v; });
+    $('#helpBtn').hidden = v === 'intro';
     $('#view-' + v).scrollTop = 0;
-    if (v === 'home') setBackdrop(homeImage());
+    if (v === 'home' || v === 'intro') setBackdrop(homeImage());
     else {
       var act = activeStep();
       setBackdrop(act ? imageForStep(act) : (byUse('loaf')[0] || IMGS[0]));
@@ -240,6 +242,8 @@
       S.done = {};
       save(); recompute(); show('now');
     });
+    $('#helpBtn').addEventListener('click', function () { show('intro'); });
+    $('#introGo').addEventListener('click', function () { S.intro = true; save(); show('home'); });
     $('#toPlan').addEventListener('click', function () { show('plan'); });
     $('#toHome').addEventListener('click', function () { show('home'); });
     $('#back').addEventListener('click', function () { show('now'); });
@@ -292,34 +296,22 @@
 
   // ---------- "now" screen ----------
   var tickTimer;
-  function setDigits(ms) {
-    var tot = Math.max(0, Math.floor(ms / 1000)), a, b, c, ua, ub, uc;
-    if (tot >= 48 * 3600) {
-      a = Math.floor(tot / 86400); b = Math.floor(tot % 86400 / 3600); c = Math.floor(tot % 3600 / 60);
-      ua = I18n.get() === 'it' ? 'Giorni' : 'Days'; ub = t('now.hours'); uc = t('now.minutes');
-    } else {
-      a = Math.floor(tot / 3600); b = Math.floor(tot % 3600 / 60); c = tot % 60;
-      ua = t('now.hours'); ub = t('now.minutes'); uc = t('now.seconds');
-    }
-    $('#d1').textContent = pad(a); $('#d2').textContent = pad(b); $('#d3').textContent = pad(c);
-    $('#u1').textContent = ua; $('#u2').textContent = ub; $('#u3').textContent = uc;
-  }
 
   function renderNow(full) {
     clearInterval(tickTimer);
     if (!PLAN || !PLAN.ok) {
       $('#nowEyebrow').textContent = '';
       $('#nowName').textContent = t('notice.none');
-      $('#digits').hidden = true; $('#nowSub').textContent = '';
+      $('#when').hidden = true; $('#nowSub').textContent = '';
       $('#nowHow').hidden = true; $('#nowDone').hidden = true;
       return;
     }
-    $('#digits').hidden = false;
+    $('#when').hidden = false;
     var a = activeStep();
     if (!a) {
       $('#nowEyebrow').textContent = '';
       $('#nowName').textContent = t('now.finished');
-      $('#digits').hidden = true; $('#nowSub').textContent = '';
+      $('#when').hidden = true; $('#nowSub').textContent = '';
       $('#trackFill').style.width = '100%';
       $('#nowHow').hidden = true; $('#nowDone').hidden = true;
       return;
@@ -327,18 +319,21 @@
     $('#nowName').textContent = L(a.nome);
     var firstStart = PLAN.steps.reduce(function (m, s) { return s.inizio != null ? Math.min(m, s.inizio) : m; }, Infinity);
 
-    function tick() {
+    function paint() {
       var now = Date.now(), due = now >= a.inizio;
       $('#nowEyebrow').textContent = due ? t('now.due') : t('now.next');
       $('#nowDone').hidden = !due;
       if (!due) {
-        setDigits(a.inizio - now);
-        $('#nowSub').textContent = t('now.starts', { day: dayMid(a.inizio), t: hhmm(a.inizio) });
-      } else if (now <= a.entro) {
-        setDigits(a.entro - now);
-        $('#nowSub').textContent = t('now.latest', { t: hhmm(a.entro) });
+        $('#whenDay').textContent = dayLabel(a.inizio);
+        $('#whenTime').textContent = hhmm(a.inizio);
+        $('#nowSub').textContent = '';
+      } else if (a.entro > a.inizio) {
+        $('#whenDay').textContent = t('now.latestBy');
+        $('#whenTime').textContent = hhmm(a.entro);
+        $('#nowSub').textContent = now > a.entro ? t('now.late') : '';
       } else {
-        setDigits(0);
+        $('#whenDay').textContent = t('now.right');
+        $('#whenTime').textContent = hhmm(a.inizio);
         // steps with no slack get a 15 minute grace before the "late" message
         $('#nowSub').textContent = now <= a.inizio + 15 * MIN ? '' : t('now.late');
       }
@@ -349,12 +344,12 @@
     var due0 = Date.now() >= a.inizio;
     $('#nowHow').hidden = !due0;
     if (due0) { $('#nowInstr').textContent = L(a.istruzioni); $('#nowSignal').textContent = L(a.segnale); }
-    tick();
+    paint();
     tickTimer = setInterval(function () {
       var nowDue = Date.now() >= a.inizio;
       if (nowDue !== due0) { renderNow(); return; }
-      tick();
-    }, 1000);
+      paint();
+    }, 15000);
     if (full) { var img = imageForStep(a); if (img) setBackdrop(img); }
   }
 
@@ -387,6 +382,7 @@
     if (!PLAN.ok) { $('#planTitle').textContent = ''; $('#planSub').textContent = ''; return; }
 
     $('#planTitle').textContent = dayLabel(PLAN.target) + ', ' + hhmm(PLAN.target);
+    $('#icsHelp').hidden = !IOS; $('#icsHelp').textContent = t('plan.calendarHelpIos');
     var first = activeStep();
     $('#planSub').textContent = first ? t('plan.starts', { day: dayMid(first.inizio), t: hhmm(first.inizio) }) : t('plan.allDone');
 
@@ -486,6 +482,8 @@
     return li;
   }
 
+  var IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
   // ---------- calendar export ----------
   function exportCalendar() {
     if (!PLAN || !PLAN.ok) return;
@@ -505,7 +503,7 @@
     a.href = URL.createObjectURL(blob); a.download = 'sourdough-plan.ics';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
-    toast(t('toast.calendar'));
+    toast(t(IOS ? 'toast.calendarIos' : 'toast.calendar'));
   }
 
   // re-pick the right crop when the phone rotates or the window is resized
@@ -520,6 +518,6 @@
   fillForm();
   recompute();
   applyLang();
-  var startView = (S.view === 'now' || S.view === 'plan') && PLAN && PLAN.ok ? S.view : 'home';
+  var startView = !S.intro ? 'intro' : ((S.view === 'now' || S.view === 'plan') && PLAN && PLAN.ok ? S.view : 'home');
   show(startView);
 })();

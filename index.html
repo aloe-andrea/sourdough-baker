@@ -24,6 +24,22 @@
     <button type="button" data-lang="it" aria-pressed="false">IT</button>
   </div>
 
+  <button type="button" class="help" id="helpBtn" aria-label="How it works" data-i18n-aria="home.how">?</button>
+
+  <!-- INTRO -->
+  <main id="view-intro" class="screen" hidden>
+    <div class="stack">
+      <h1 data-i18n="intro.title"></h1>
+      <p class="lead" data-i18n="intro.lead"></p>
+      <ol class="points">
+        <li data-i18n="intro.p1"></li>
+        <li data-i18n="intro.p2"></li>
+        <li data-i18n="intro.p3"></li>
+      </ol>
+      <button type="button" class="cta" id="introGo" data-i18n="intro.go"></button>
+    </div>
+  </main>
+
   <!-- SETUP -->
   <main id="view-home" class="screen">
     <div class="stack">
@@ -85,12 +101,9 @@
     <div class="stack center">
       <p class="label" id="nowEyebrow"></p>
       <p class="serif step-name" id="nowName"></p>
-      <div class="digits" id="digits" aria-live="off">
-        <div><span id="d1">00</span><small id="u1"></small></div>
-        <i>:</i>
-        <div><span id="d2">00</span><small id="u2"></small></div>
-        <i>:</i>
-        <div><span id="d3">00</span><small id="u3"></small></div>
+      <div class="when" id="when">
+        <span class="when-day" id="whenDay"></span>
+        <span class="when-time" id="whenTime"></span>
       </div>
       <p class="sub" id="nowSub"></p>
       <div class="track"><i id="trackFill"></i></div>
@@ -117,6 +130,7 @@
       <ol id="timeline" class="timeline"></ol>
       <div class="foot">
         <button type="button" class="cta small" id="icsBtn" data-i18n="plan.calendar"></button>
+        <p class="hint" id="icsHelp" hidden></p>
         <button type="button" class="ghost" id="reset" data-i18n="plan.reset"></button>
       </div>
     </div>
