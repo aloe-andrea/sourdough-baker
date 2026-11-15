@@ -161,16 +161,19 @@
   var METHODS = {
     pieghe: {
       nome: tx('Sourdough bread, with folds', 'Pane a lievito madre, con pieghe'),
+      breve: tx('With folds', 'Con pieghe'),
       descrizione: tx('Autolyse, three folds, bulk fermentation, a night in the fridge.', 'Autolisi, tre pieghe, fermentazione di massa, una notte in frigo.'),
       passi: ['autolisi', 'impasto', 'piega1', 'piega2', 'piega3', 'massa', 'preforma', 'formatura', 'forno', 'cottura', 'raffreddamento']
     },
     senza: {
       nome: tx('Sourdough bread, no folds', 'Pane a lievito madre, senza pieghe'),
+      breve: tx('No folds', 'Senza pieghe'),
       descrizione: tx('Knead once, one long rise, then shape and chill.', 'Si impasta una volta, un’unica lievitazione, poi formatura e frigo.'),
       passi: ['autolisi', 'impastoSenza', 'preforma', 'formatura', 'forno', 'cottura', 'raffreddamento']
     },
     brioche: {
       nome: tx('Brioche or enriched dough', 'Brioche o impasto arricchito'),
+      breve: tx('Brioche', 'Brioche'),
       descrizione: tx('Knead with butter and eggs, no folds, shape, chill, final proof.', 'Impasto con burro e uova, senza pieghe, formatura, frigo, lievitazione finale.'),
       passi: ['impastoBrioche', 'rialzoBrioche', 'formaBrioche', 'provaBrioche', 'forno', 'cotturaBrioche', 'raffreddamento']
     }
@@ -179,16 +182,19 @@
   var PRESETS = {
     'uno11-uno12': {
       nome: tx('Feed 1:1, then 1:2', 'Rinfresco 1:1 poi 1:2'),
+      breve: tx('1:1 then 1:2', '1:1 poi 1:2'),
       descrizione: tx('From the fridge: 1:1, then 1:2 at the double. The classic overnight.', 'Dal frigo: 1:1, al raddoppio 1:2. Il classico notturno.'),
       rinfreschi: ['rinfresco11', 'rinfresco12']
     },
     'due12': {
       nome: tx('Two 1:2 feeds', 'Due rinfreschi 1:2'),
+      breve: tx('1:2 twice', '1:2 due volte'),
       descrizione: tx('Start with 1:2 from the fridge, then feed 1:2 again at the double.', 'Parti con 1:2 dal frigo e ripeti 1:2 al raddoppio.'),
       rinfreschi: ['rinfresco12a', 'rinfresco12b']
     },
     'singolo': {
       nome: tx('A single 1:2 feed', 'Un solo rinfresco 1:2'),
+      breve: tx('Single 1:2', '1:2 singolo'),
       descrizione: tx('One feed from the fridge. Faster, a less active starter.', 'Un unico rinfresco dal frigo. Più veloce, lievito meno attivo.'),
       rinfreschi: ['rinfrescoUnico']
     }

@@ -22,16 +22,16 @@
   I18n.set(S.lang);
   var PLAN = null;       // last computed plan
   var view = 'home';
+  var dayIdx = null;     // selected day tab in the plan
 
   // ---------- formatting ----------
   var pad = function (n) { return (n < 10 ? '0' : '') + n; };
   var hhmm = function (ms) { var d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
-  var dayLabel = function (ms) {
-    var s = new Date(ms).toLocaleDateString(I18n.locale(), { weekday: 'long', day: 'numeric', month: 'long' });
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  };
-  // Italian writes weekdays and months in lower case, English capitalises them
+  var cap = function (s) { return s.charAt(0).toUpperCase() + s.slice(1); };
+  var dayLabel = function (ms) { return cap(new Date(ms).toLocaleDateString(I18n.locale(), { weekday: 'long', day: 'numeric', month: 'long' })); };
+  // Italian writes weekdays and months in lower case inside a sentence, English capitalises them
   var dayMid = function (ms) { var s = dayLabel(ms); return I18n.get() === 'it' ? s.toLowerCase() : s; };
+  var dayShort = function (ms) { return cap(new Date(ms).toLocaleDateString(I18n.locale(), { weekday: 'short', day: 'numeric' })); };
   var dayKey = function (ms) { var d = new Date(ms); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); };
   function dur(min) {
     var h = Math.floor(min / 60), m = min % 60;
@@ -63,24 +63,26 @@
   var CAT_FOR = { starter: 'starter', impasto: 'dough', pieghe: 'dough', bulk: 'dough', forma: 'dough',
                   frigo: 'mood', forno: 'dough', cottura: 'loaf', pane: 'loaf' };
   var bgLayers = [$('#bgA'), $('#bgB')], bgIdx = 0, currentImg = null;
+  var dark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
   function hash(str) { var h = 0; for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return h; }
   function byUse(use) { return IMGS.filter(function (i) { return i.use === use; }); }
-
   function isPortrait() { return window.innerHeight >= window.innerWidth; }
 
-  // panel colours, ink and accent come from the photo (computed once, stored in images.js)
+  // The panel follows the phone/computer light or dark setting, tinted from the photo, so it
+  // stays the same style while the photo changes.
   function applyPalette(img) {
+    var pal = dark && dark.matches ? img.dark : img.light;
     var r = document.documentElement.style;
     document.body.dataset.side = img.side || 'left';
-    r.setProperty('--panel', img.panel);
-    r.setProperty('--ink', img.ink);
-    r.setProperty('--accent', img.accent);
-    r.setProperty('--btn-ink', img.btnInk);
-    r.setProperty('--scheme', img.mode === 'light' ? 'light' : 'dark');
-    r.setProperty('--veil', img.mode === 'light' ? '0.06' : '0.28');
+    r.setProperty('--panel', pal.panel);
+    r.setProperty('--ink', pal.ink);
+    r.setProperty('--accent', pal.accent);
+    r.setProperty('--btn-ink', pal.btnInk);
+    r.setProperty('--scheme', dark && dark.matches ? 'dark' : 'light');
+    r.setProperty('--veil', dark && dark.matches ? '0.18' : '0.04');
     var m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute('content', img.mode === 'light' ? '#efe6d8' : '#1c130d');
+    if (m) m.setAttribute('content', dark && dark.matches ? '#1c130d' : '#efe6d8');
   }
 
   function setBackdrop(img, force) {
@@ -92,31 +94,26 @@
       if (currentImg !== img) return;
       var next = bgLayers[1 - bgIdx], prev = bgLayers[bgIdx];
       next.style.backgroundImage = 'url("' + file + '")';
-      next.classList.remove('show'); void next.offsetWidth; next.classList.add('show');
+      next.classList.add('show');
       prev.classList.remove('show');
       bgIdx = 1 - bgIdx;
       applyPalette(img);
-      $('#credit').textContent = t('credit.photo') + ': ' + img.title + ' · ' + img.credit + ' · ' + img.license;
+      $('#credit').textContent = t('credit.photo') + ': ' + img.title + ' · ' + img.credit;
     };
     pre.src = file;
   }
 
-  function imageForStep(step, salt) {
+  function imageForStep(step) {
     var list = byUse(CAT_FOR[step.foto] || 'loaf');
-    return list.length ? list[hash(step.id + (salt || '')) % list.length] : null;
+    return list.length ? list[hash(step.id) % list.length] : null;
   }
 
-  var homeTimer, homeOrder = [], homePos = 0;
-  function startHomeSlides() {
-    stopHomeSlides();
-    var order = IMGS.slice().sort(function (a, b) { return hash(a.file + 'h') - hash(b.file + 'h'); });
-    // lead with a bakery or loaf, calm and recognisable
-    order.sort(function (a, b) { return (b.use === 'loaf' ? 1 : 0) - (a.use === 'loaf' ? 1 : 0); });
-    homeOrder = order; homePos = 0;
-    if (homeOrder.length) setBackdrop(homeOrder[0]);
-    homeTimer = setInterval(function () { homePos = (homePos + 1) % homeOrder.length; setBackdrop(homeOrder[homePos]); }, 14000);
+  // one calm photo for the setup screen, different each day, never rotating
+  function homeImage() {
+    var day = Math.floor(Date.now() / 86400000);
+    var pool = IMGS.filter(function (i) { return i.use === 'loaf' || i.use === 'mood' || i.use === 'dough'; });
+    return pool.length ? pool[day % pool.length] : IMGS[0];
   }
-  function stopHomeSlides() { clearInterval(homeTimer); }
 
   // ---------- quotes ----------
   function newQuote() {
@@ -138,11 +135,10 @@
   // ---------- language ----------
   function applyLang() {
     document.documentElement.lang = I18n.get();
-    document.title = t('home.eyebrow');
+    document.title = t('home.title');
     document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.dataset.i18n); });
     document.querySelectorAll('.lang button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.lang === I18n.get())); });
-    renderPresets();
-    renderMethods();
+    renderChoices();
     refreshQuoteLang();
     if (currentImg) setBackdrop(currentImg, true);
     if (view === 'now') renderNow(true);
@@ -156,50 +152,36 @@
     document.body.dataset.view = v;
     ['home', 'now', 'plan'].forEach(function (n) { $('#view-' + n).hidden = n !== v; });
     $('#view-' + v).scrollTop = 0;
-    if (v === 'home') startHomeSlides(); else stopHomeSlides();
-    if (v !== 'home') {
+    if (v === 'home') setBackdrop(homeImage());
+    else {
       var act = activeStep();
-      if (act) setBackdrop(imageForStep(act));
-      else if (IMGS.length) setBackdrop(byUse('loaf')[0] || IMGS[0]);
+      setBackdrop(act ? imageForStep(act) : (byUse('loaf')[0] || IMGS[0]));
     }
     newQuote();
     if (v === 'now') renderNow(true);
-    if (v === 'plan') renderPlan();
+    if (v === 'plan') { dayIdx = null; renderPlan(); }
   }
 
   // ---------- setup ----------
-  function renderPresets() {
-    var box = $('#presets');
+  function renderGroup(boxId, descId, defs, selected, onPick) {
+    var box = $(boxId), desc = $(descId);
     box.innerHTML = '';
-    Object.keys(Recipe.PRESETS).forEach(function (id) {
-      var p = Recipe.PRESETS[id];
+    Object.keys(defs).forEach(function (id) {
+      var d = defs[id];
       var label = document.createElement('label');
-      label.className = 'preset';
-      label.innerHTML = '<input type="radio" name="preset"><b></b><small></small>';
-      label.querySelector('b').textContent = L(p.nome);
-      label.querySelector('small').textContent = L(p.descrizione);
+      label.innerHTML = '<input type="radio"><span></span>';
+      label.querySelector('span').textContent = L(d.breve);
       var input = label.querySelector('input');
-      input.value = id; input.checked = id === S.preset;
-      input.addEventListener('change', function () { S.preset = id; S.done = {}; save(); });
+      input.name = boxId; input.value = id; input.checked = id === selected;
+      input.addEventListener('change', function () { onPick(id); desc.textContent = L(d.descrizione); });
+      if (id === selected) desc.textContent = L(d.descrizione);
       box.appendChild(label);
     });
   }
 
-  function renderMethods() {
-    var box = $('#methods');
-    box.innerHTML = '';
-    Object.keys(Recipe.METHODS).forEach(function (id) {
-      var m = Recipe.METHODS[id];
-      var label = document.createElement('label');
-      label.className = 'preset';
-      label.innerHTML = '<input type="radio" name="method"><b></b><small></small>';
-      label.querySelector('b').textContent = L(m.nome);
-      label.querySelector('small').textContent = L(m.descrizione);
-      var input = label.querySelector('input');
-      input.value = id; input.checked = id === S.method;
-      input.addEventListener('change', function () { S.method = id; S.done = {}; save(); });
-      box.appendChild(label);
-    });
+  function renderChoices() {
+    renderGroup('#presets', '#presetDesc', Recipe.PRESETS, S.preset, function (id) { S.preset = id; S.done = {}; save(); });
+    renderGroup('#methods', '#methodDesc', Recipe.METHODS, S.method, function (id) { S.method = id; S.done = {}; save(); });
   }
 
   function fillForm() {
@@ -217,6 +199,7 @@
     document.querySelectorAll('.lang button').forEach(function (b) {
       b.addEventListener('click', function () { S.lang = b.dataset.lang; I18n.set(S.lang); save(); applyLang(); });
     });
+    if (dark && dark.addEventListener) dark.addEventListener('change', function () { if (currentImg) applyPalette(currentImg); });
     $('#detailsBtn').addEventListener('click', function () {
       var d = $('#details'), open = d.hidden;
       d.hidden = !open;
@@ -227,6 +210,7 @@
     $('#quietOn').addEventListener('change', function (e) { S.quietOn = e.target.checked; $('#quietRow').hidden = !S.quietOn; save(); });
     $('#quietStart').addEventListener('change', function (e) { if (e.target.value) { S.quiet.start = e.target.value; save(); } });
     $('#quietEnd').addEventListener('change', function (e) { if (e.target.value) { S.quiet.end = e.target.value; save(); } });
+
     var preview = null;
     function hidePreview() { $('#startNowOut').hidden = true; preview = null; }
     $('#form').addEventListener('input', hidePreview);
@@ -326,7 +310,7 @@
     if (!PLAN || !PLAN.ok) {
       $('#nowEyebrow').textContent = '';
       $('#nowName').textContent = t('notice.none');
-      $('#digits').hidden = true; $('#nowSub').textContent = ''; $('#nowProgress').textContent = '';
+      $('#digits').hidden = true; $('#nowSub').textContent = '';
       $('#nowHow').hidden = true; $('#nowDone').hidden = true;
       return;
     }
@@ -336,7 +320,7 @@
       $('#nowEyebrow').textContent = '';
       $('#nowName').textContent = t('now.finished');
       $('#digits').hidden = true; $('#nowSub').textContent = '';
-      $('#nowProgress').textContent = ''; $('#trackFill').style.width = '100%';
+      $('#trackFill').style.width = '100%';
       $('#nowHow').hidden = true; $('#nowDone').hidden = true;
       return;
     }
@@ -361,8 +345,6 @@
       var total = PLAN.target - firstStart;
       var p = total > 0 ? Math.max(0, Math.min(100, (now - firstStart) / total * 100)) : 0;
       $('#trackFill').style.width = p.toFixed(1) + '%';
-      $('#nowProgress').textContent = t('now.progress', { p: Math.round(p) });
-      if (!due && a.inizio - now <= 0) renderNow();
     }
     var due0 = Date.now() >= a.inizio;
     $('#nowHow').hidden = !due0;
@@ -380,13 +362,13 @@
   function notices() {
     var box = $('#notices');
     box.innerHTML = '';
-    function add(text, bad) {
+    function add(text) {
       var p = document.createElement('p');
-      p.className = 'notice' + (bad ? ' bad' : '');
+      p.className = 'notice';
       p.textContent = text;
       box.appendChild(p);
     }
-    if (!PLAN.ok) { add(t('notice.none'), true); return; }
+    if (!PLAN.ok) { add(t('notice.none')); return; }
     PLAN.avvisi.forEach(function (a) {
       if (a.codice === 'target-spostato') {
         add(t('notice.moved', { day: dayMid(PLAN.target), t: hhmm(PLAN.target), d: dur(Math.abs(a.spostamentoMin)),
@@ -400,69 +382,89 @@
   function renderPlan() {
     if (!PLAN) recompute();
     notices();
-    var list = $('#timeline');
-    list.innerHTML = '';
+    var list = $('#timeline'), tabs = $('#dayTabs');
+    list.innerHTML = ''; tabs.innerHTML = '';
     if (!PLAN.ok) { $('#planTitle').textContent = ''; $('#planSub').textContent = ''; return; }
 
     $('#planTitle').textContent = dayLabel(PLAN.target) + ', ' + hhmm(PLAN.target);
     var first = activeStep();
     $('#planSub').textContent = first ? t('plan.starts', { day: dayMid(first.inizio), t: hhmm(first.inizio) }) : t('plan.allDone');
 
-    var lastDay = null, prev = null;
+    // group the steps by day
+    var days = [], byKey = {};
     PLAN.steps.forEach(function (s, i) {
       if (s.inizio == null) return;
-      var dk = dayKey(s.inizio);
-      if (dk !== lastDay) {
-        var h = document.createElement('li');
-        h.className = 'day'; h.textContent = dayLabel(s.inizio);
-        list.appendChild(h); lastDay = dk;
-      }
-      if (prev && S.quietOn) {
-        var b = Planner.blockedIntervals(prev.inizio, s.inizio, S.quiet).filter(function (iv) { return iv[0] >= prev.inizio && iv[1] <= s.inizio; });
-        if (b.length) {
-          var n = document.createElement('li');
-          n.className = 'night';
-          n.textContent = '☾  ' + t('plan.rest', { a: S.quiet.start, b: S.quiet.end });
-          list.appendChild(n);
-        }
-      }
-      list.appendChild(stepItem(s, i));
-      prev = s;
+      var k = dayKey(s.inizio);
+      if (!byKey[k]) { byKey[k] = { key: k, at: s.inizio, items: [] }; days.push(byKey[k]); }
+      byKey[k].items.push({ s: s, i: i });
     });
+    if (dayIdx == null || dayIdx >= days.length) {
+      var act = first ? dayKey(first.inizio) : null, found = 0;
+      days.forEach(function (d, n) { if (d.key === act) found = n; });
+      dayIdx = found;
+    }
+
+    days.forEach(function (d, n) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(n === dayIdx));
+      b.textContent = dayShort(d.at);
+      b.addEventListener('click', function () { dayIdx = n; renderPlan(); });
+      tabs.appendChild(b);
+    });
+
+    var day = days[dayIdx], prev = null;
+    // the night before this day's first step
+    if (S.quietOn && dayIdx > 0) {
+      var before = days[dayIdx - 1].items[days[dayIdx - 1].items.length - 1].s;
+      if (Planner.blockedIntervals(before.inizio, day.items[0].s.inizio, S.quiet).some(function (iv) { return iv[0] >= before.inizio && iv[1] <= day.items[0].s.inizio; })) {
+        list.appendChild(nightRow());
+      }
+    }
+    day.items.forEach(function (it) {
+      if (prev && S.quietOn) {
+        var b = Planner.blockedIntervals(prev.inizio, it.s.inizio, S.quiet).filter(function (iv) { return iv[0] >= prev.inizio && iv[1] <= it.s.inizio; });
+        if (b.length) list.appendChild(nightRow());
+      }
+      list.appendChild(stepItem(it.s, it.i));
+      prev = it.s;
+    });
+  }
+
+  function nightRow() {
+    var n = document.createElement('li');
+    n.className = 'night';
+    n.textContent = '☾  ' + t('plan.rest', { a: S.quiet.start, b: S.quiet.end });
+    return n;
   }
 
   function stepItem(s, i) {
     var li = document.createElement('li');
     li.className = 'step' + (s.fatto ? ' done' : '');
-    li.style.animationDelay = Math.min(i, 12) * 40 + 'ms';
+    li.style.animationDelay = Math.min(i, 10) * 30 + 'ms';
 
-    var time = document.createElement('div');
-    time.className = 'time'; time.textContent = hhmm(s.inizio);
-
-    var card = document.createElement('div');
-    card.className = 'card';
-    var btn = document.createElement('button');
-    btn.type = 'button'; btn.setAttribute('aria-expanded', 'false');
-
-    var meta = [];
-    if (s.fatto) meta.push('<span class="chip">' + t('chip.done') + '</span>');
+    var head = document.createElement('button');
+    head.type = 'button'; head.setAttribute('aria-expanded', 'false');
+    var time = document.createElement('time'); time.textContent = hhmm(s.inizio);
+    var name = document.createElement('span'); name.className = 'name'; name.textContent = L(s.nome);
+    var meta = document.createElement('span'); meta.className = 'meta';
+    if (s.fatto) meta.textContent = t('chip.done');
     else {
-      meta.push('<span class="chip limit">' + (s.entro > s.inizio ? t('chip.by', { t: hhmm(s.entro) }) : t('chip.exact')) + '</span>');
-      meta.push('<span class="chip">' + t('chip.then', { d: dur(s.durataMin) }) + '</span>');
-      if (s.allungato) meta.push('<span class="chip warn">' + t('chip.long') + '</span>');
-      if (s.accorciato) meta.push('<span class="chip warn">' + t('chip.short') + '</span>');
+      var lim = document.createElement('b');
+      lim.textContent = s.entro > s.inizio ? t('chip.by', { t: hhmm(s.entro) }) : t('chip.exact');
+      meta.appendChild(lim);
+      var rest = ' · ' + t('chip.then', { d: dur(s.durataMin) });
+      if (s.allungato) rest += ' · ' + t('chip.long');
+      if (s.accorciato) rest += ' · ' + t('chip.short');
+      meta.appendChild(document.createTextNode(rest));
     }
-    btn.innerHTML = '<span class="name"></span><span class="meta">' + meta.join('') + '</span>';
-    btn.querySelector('.name').textContent = L(s.nome);
+    head.appendChild(time); head.appendChild(name); head.appendChild(meta);
 
     var detail = document.createElement('div');
     detail.className = 'detail'; detail.hidden = true;
     var act = document.createElement('div'); act.className = 'actions';
     if (!s.fatto) {
       var p1 = document.createElement('p'); p1.textContent = L(s.istruzioni);
-      var p2 = document.createElement('p'); p2.className = 'signal';
-      var bb = document.createElement('b'); bb.textContent = t('step.how');
-      p2.appendChild(bb); p2.appendChild(document.createTextNode(L(s.segnale)));
+      var p2 = document.createElement('p'); p2.className = 'signal'; p2.textContent = L(s.segnale);
       var done = document.createElement('button'); done.type = 'button'; done.textContent = t('act.done');
       done.addEventListener('click', function () { markDone(s.id); });
       act.appendChild(done);
@@ -474,22 +476,15 @@
     }
     detail.appendChild(act);
 
-    btn.addEventListener('click', function () {
+    head.addEventListener('click', function () {
       var open = detail.hidden;
       detail.hidden = !open;
-      btn.setAttribute('aria-expanded', String(open));
+      head.setAttribute('aria-expanded', String(open));
     });
 
-    card.appendChild(btn); card.appendChild(detail);
-    li.appendChild(time); li.appendChild(card);
+    li.appendChild(head); li.appendChild(detail);
     return li;
   }
-
-  var rzT, wasPortrait = isPortrait();
-  window.addEventListener('resize', function () {
-    clearTimeout(rzT);
-    rzT = setTimeout(function () { if (isPortrait() !== wasPortrait) { wasPortrait = isPortrait(); if (currentImg) setBackdrop(currentImg, true); } }, 250);
-  });
 
   // ---------- calendar export ----------
   function exportCalendar() {
@@ -499,7 +494,7 @@
       if (s.fatto || s.inizio == null) return;
       var lines = [L(s.istruzioni)];
       if (s.entro > s.inizio) lines.push(t('ics.latest', { t: hhmm(s.entro) }));
-      lines.push(t('step.how') + L(s.segnale));
+      lines.push(L(s.segnale));
       events.push({ uid: uid + '-' + i + '@sourdough', start: s.inizio, end: s.inizio + 15 * MIN, summary: L(s.nome),
                     description: lines.join('\n'), alarms: [10, 0] });
     });
@@ -513,10 +508,16 @@
     toast(t('toast.calendar'));
   }
 
+  // re-pick the right crop when the phone rotates or the window is resized
+  var rzT, wasPortrait = isPortrait();
+  window.addEventListener('resize', function () {
+    clearTimeout(rzT);
+    rzT = setTimeout(function () { if (isPortrait() !== wasPortrait) { wasPortrait = isPortrait(); if (currentImg) setBackdrop(currentImg, true); } }, 250);
+  });
+
   // ---------- start ----------
   bind();
   fillForm();
-  renderPresets();
   recompute();
   applyLang();
   var startView = (S.view === 'now' || S.view === 'plan') && PLAN && PLAN.ok ? S.view : 'home';

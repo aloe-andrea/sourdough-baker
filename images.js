@@ -8,11 +8,18 @@ window.IMAGES = [
   "license": "personal use",
   "lum": 140,
   "side": "right",
-  "mode": "light",
-  "panel": "rgba(223,218,212,0.62)",
-  "ink": "#241a13",
-  "accent": "#654822",
-  "btnInk": "#fff9ee"
+  "light": {
+   "panel": "rgba(232,229,225,0.74)",
+   "ink": "#211710",
+   "accent": "#705025",
+   "btnInk": "#fff9ee"
+  },
+  "dark": {
+   "panel": "rgba(42,39,35,0.66)",
+   "ink": "#fff8ec",
+   "accent": "#dec29d",
+   "btnInk": "#24180e"
+  }
  },
  {
   "p": "assets/img/dough_00-p.webp",
@@ -23,11 +30,18 @@ window.IMAGES = [
   "license": "personal use",
   "lum": 146,
   "side": "left",
-  "mode": "dark",
-  "panel": "rgba(47,40,35,0.54)",
-  "ink": "#fff8ec",
-  "accent": "#e5c3b1",
-  "btnInk": "#24180e"
+  "light": {
+   "panel": "rgba(225,219,214,0.74)",
+   "ink": "#1f150e",
+   "accent": "#794328",
+   "btnInk": "#fff9ee"
+  },
+  "dark": {
+   "panel": "rgba(42,35,31,0.66)",
+   "ink": "#fff8ec",
+   "accent": "#daa88f",
+   "btnInk": "#24180e"
+  }
  },
  {
   "p": "assets/img/dough_01-p.webp",
@@ -38,11 +52,18 @@ window.IMAGES = [
   "license": "personal use",
   "lum": 148,
   "side": "left",
-  "mode": "light",
-  "panel": "rgba(219,211,204,0.62)",
-  "ink": "#231812",
-  "accent": "#6e3d25",
-  "btnInk": "#fff9ee"
+  "light": {
+   "panel": "rgba(230,224,220,0.74)",
+   "ink": "#20160f",
+   "accent": "#7a4429",
+   "btnInk": "#fff9ee"
+  },
+  "dark": {
+   "panel": "rgba(46,40,36,0.66)",
+   "ink": "#fff8ec",
+   "accent": "#e1baa6",
+   "btnInk": "#24180e"
+  }
  },
  {
   "p": "assets/img/loaf_00-p.webp",
@@ -53,11 +74,18 @@ window.IMAGES = [
   "license": "personal use",
   "lum": 90,
   "side": "left",
-  "mode": "dark",
-  "panel": "rgba(37,25,17,0.54)",
-  "ink": "#fff8ec",
-  "accent": "#cd976a",
-  "btnInk": "#24180e"
+  "light": {
+   "panel": "rgba(216,206,198,0.74)",
+   "ink": "#1d120b",
+   "accent": "#54351c",
+   "btnInk": "#fff9ee"
+  },
+  "dark": {
+   "panel": "rgba(32,22,14,0.66)",
+   "ink": "#fff8ec",
+   "accent": "#c68753",
+   "btnInk": "#24180e"
+  }
  },
  {
   "p": "assets/img/mood_00-p.webp",
@@ -68,11 +96,18 @@ window.IMAGES = [
   "license": "personal use",
   "lum": 138,
   "side": "left",
-  "mode": "dark",
-  "panel": "rgba(48,39,33,0.54)",
-  "ink": "#fff8ec",
-  "accent": "#e0bea1",
-  "btnInk": "#24180e"
+  "light": {
+   "panel": "rgba(225,218,212,0.74)",
+   "ink": "#20150e",
+   "accent": "#694323",
+   "btnInk": "#fff9ee"
+  },
+  "dark": {
+   "panel": "rgba(42,34,28,0.66)",
+   "ink": "#fff8ec",
+   "accent": "#d4a67f",
+   "btnInk": "#24180e"
+  }
  },
  {
   "p": "assets/img/loaf_01-p.webp",
@@ -83,10 +118,17 @@ window.IMAGES = [
   "license": "personal use",
   "lum": 121,
   "side": "left",
-  "mode": "dark",
-  "panel": "rgba(36,24,14,0.54)",
-  "ink": "#fff8ec",
-  "accent": "#d4914a",
-  "btnInk": "#24180e"
+  "light": {
+   "panel": "rgba(215,205,196,0.74)",
+   "ink": "#1d120a",
+   "accent": "#533414",
+   "btnInk": "#fff9ee"
+  },
+  "dark": {
+   "panel": "rgba(32,21,12,0.66)",
+   "ink": "#fff8ec",
+   "accent": "#ce8231",
+   "btnInk": "#24180e"
+  }
  }
 ];

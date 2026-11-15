@@ -27,9 +27,7 @@
   <!-- SETUP -->
   <main id="view-home" class="screen">
     <div class="stack">
-      <p class="eyebrow" data-i18n="home.eyebrow"></p>
       <h1 data-i18n="home.title"></h1>
-      <p class="serif lede" data-i18n="home.lede"></p>
 
       <form id="form" autocomplete="off">
         <label class="field">
@@ -40,19 +38,21 @@
         <div class="startnow">
           <button type="button" id="startNowBtn" class="link"><span data-i18n="home.startNow"></span> <i aria-hidden="true">→</i></button>
           <div id="startNowOut" class="startnow-out" hidden>
-            <p class="serif" id="startNowText"></p>
+            <p id="startNowText"></p>
             <button type="button" id="startNowGo" class="cta small" data-i18n="home.startNowGo"></button>
           </div>
         </div>
 
         <fieldset class="field">
           <legend class="label" data-i18n="home.feeds"></legend>
-          <div id="presets" class="presets"></div>
+          <div id="presets" class="seg"></div>
+          <p class="optdesc" id="presetDesc"></p>
         </fieldset>
 
         <fieldset class="field">
           <legend class="label" data-i18n="home.dough"></legend>
-          <div id="methods" class="presets"></div>
+          <div id="methods" class="seg"></div>
+          <p class="optdesc" id="methodDesc"></p>
         </fieldset>
 
         <button type="button" id="detailsBtn" class="link" aria-expanded="false"><span data-i18n="home.details"></span> <i aria-hidden="true">+</i></button>
@@ -83,7 +83,7 @@
   <!-- NOW -->
   <main id="view-now" class="screen" hidden>
     <div class="stack center">
-      <p class="eyebrow" id="nowEyebrow"></p>
+      <p class="label" id="nowEyebrow"></p>
       <p class="serif step-name" id="nowName"></p>
       <div class="digits" id="digits" aria-live="off">
         <div><span id="d1">00</span><small id="u1"></small></div>
@@ -94,7 +94,6 @@
       </div>
       <p class="sub" id="nowSub"></p>
       <div class="track"><i id="trackFill"></i></div>
-      <p class="sub small" id="nowProgress"></p>
       <div class="howto" id="nowHow" hidden>
         <p id="nowInstr"></p>
         <p class="serif" id="nowSignal"></p>
@@ -111,10 +110,10 @@
   <main id="view-plan" class="screen scroll" hidden>
     <div class="plan-wrap">
       <button type="button" class="ghost back" id="back" data-i18n="plan.back"></button>
-      <p class="eyebrow" data-i18n="plan.eyebrow"></p>
       <h2 id="planTitle"></h2>
-      <p class="serif lede" id="planSub"></p>
+      <p id="planSub"></p>
       <div id="notices"></div>
+      <div id="dayTabs" class="tabs" role="tablist"></div>
       <ol id="timeline" class="timeline"></ol>
       <div class="foot">
         <button type="button" class="cta small" id="icsBtn" data-i18n="plan.calendar"></button>
