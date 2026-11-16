@@ -10,12 +10,18 @@
   var ENRICHED_PCT = 0.12;      // sugar + fat + eggs as a share of the flour weight
   var FACTOR_LEAN = 3;
   var FACTOR_ENRICHED = 4;
-  var ENRICHMENT = /burro|butter|olio|oil|strutto|margarina|uov|tuorl|egg|yolk|zucchero|sugar|miele|honey/i;
+  var ENRICHMENT = /\b(burro|butter|olio|oil|strutto|lard|margarin\w*|ghee|shortening|uov\w*|tuorl\w*|eggs?|yolks?|zucchero|sugar|miele|honey)\b/i;
   var SCALED_PHASES = ['bulk', 'proof'];
   var CAP_MIN = { bulk: 720, proof: 360 };   // converted times never go past 12 h (bulk) and 6 h (proof)
   var SLOW_BULK_MIN = 360;                   // a written bulk this long is already a slow yeast recipe: leave it
 
   function sum(ing, type) { return ing.reduce(function (a, i) { return a + (i.type === type && i.g > 0 ? i.g : 0); }, 0); }
+
+  // yeast and no starter: the only recipes this module converts
+  function isYeastRecipe(recipe) {
+    var ing = (recipe && recipe.ingredients) || [];
+    return sum(ing, 'yeast') > 0 && !(sum(ing, 'starter') > 0);
+  }
 
   function unchanged(recipe, reason) { return { recipe: recipe, converted: false, info: null, reason: reason }; }
 
@@ -52,5 +58,5 @@
     return { recipe: out, converted: true, info: { starterG: starterG, yeastG: yeastG, factor: factor, enriched: enriched }, reason: null };
   }
 
-  return { yeastToStarter: yeastToStarter, STARTER_PCT: STARTER_PCT, ENRICHED_PCT: ENRICHED_PCT, FACTOR_LEAN: FACTOR_LEAN, FACTOR_ENRICHED: FACTOR_ENRICHED };
+  return { yeastToStarter: yeastToStarter, isYeastRecipe: isYeastRecipe, STARTER_PCT: STARTER_PCT, ENRICHED_PCT: ENRICHED_PCT, FACTOR_LEAN: FACTOR_LEAN, FACTOR_ENRICHED: FACTOR_ENRICHED };
 });

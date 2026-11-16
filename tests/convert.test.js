@@ -144,6 +144,36 @@ test('converted times never exceed 12 h for the bulk and 6 h for the proof', () 
   assert.deepStrictEqual([step(res.recipe, 'proof').minMin, step(res.recipe, 'proof').maxMin], [360, 360]);
 });
 
+test('enrichment words match whole words only (eggplant, boiled are not enrichment)', () => {
+  const mk = (name) => { const r = lean(); r.ingredients.push({ name: name, g: 100, type: 'other' }); return Convert.yeastToStarter(r).info.factor; };
+  assert.strictEqual(mk('Eggplant'), 3);
+  assert.strictEqual(mk('Boiled potatoes'), 3);
+  assert.strictEqual(mk('Olive oil'), 4);
+  assert.strictEqual(mk('Egg yolks'), 4);
+});
+
+test('margarine, lard, ghee, shortening and tuorli count as enrichment', () => {
+  ['Margarine', 'Lard', 'Ghee', 'Shortening', 'Tuorli', 'Strutto', 'Margarina'].forEach(n => {
+    const r = lean(); r.ingredients.push({ name: n, g: 100, type: 'other' });
+    assert.strictEqual(Convert.yeastToStarter(r).info.factor, 4, n);
+  });
+});
+
+test('isYeastRecipe: yeast and no starter only', () => {
+  assert.strictEqual(Convert.isYeastRecipe(lean()), true);
+  const withStarter = lean(); withStarter.ingredients.push({ name: 'Starter', g: 80, type: 'starter' });
+  assert.strictEqual(Convert.isYeastRecipe(withStarter), false);
+  assert.strictEqual(Convert.isYeastRecipe({ name: 'x', ingredients: [] }), false);
+  assert.strictEqual(Convert.isYeastRecipe({ name: 'x' }), false);
+});
+
+test('empty ingredient list and missing steps do not crash', () => {
+  assert.strictEqual(Convert.yeastToStarter({ name: 'x', ingredients: [] }).converted, false);
+  const r = lean(); delete r.steps;
+  const res = Convert.yeastToStarter(r);
+  assert.strictEqual(res.converted, true);
+});
+
 test('input is not mutated', () => {
   const r = lean();
   const snap = JSON.parse(JSON.stringify(r));

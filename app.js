@@ -32,10 +32,6 @@
     BUILT = r ? Recipe.fromImported(CONV ? CONV.recipe : r, S.preset, { loafG: S.loafG }) : null;
     return BUILT;
   }
-  function isYeastRecipe(r) {
-    var sum = function (type) { return r.ingredients.reduce(function (a, i) { return a + (i.type === type ? i.g : 0); }, 0); };
-    return sum('yeast') > 0 && !(sum('starter') > 0);
-  }
   function currentSteps() { return BUILT ? BUILT.steps : []; }
   function waterStepId() {
     var st = currentSteps().filter(function (x) { return x.id.indexOf('rinfresco') !== 0 && (x.grammi || []).some(function (g) { return g.type === 'water'; }); })[0];
@@ -166,6 +162,7 @@
 
   // ---------- language ----------
   function applyLang() {
+    build(); recompute();   // the starter name added by the conversion follows the language
     document.documentElement.lang = I18n.get();
     document.title = t('home.title');
     document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.dataset.i18n); });
@@ -238,7 +235,7 @@
     var box = $('#sizes'); box.innerHTML = '';
     var r = currentRecipe();
     if (!r) return;
-    var written = Math.round(Calc.totalWeight(r.ingredients));
+    var written = Math.round(Calc.totalWeight((CONV && CONV.converted ? CONV.recipe : r).ingredients));
     var sizes = [written].concat([750, 900].filter(function (g) { return Math.abs(g - written) > 40; }));
     sizes.forEach(function (g, i) {
       var label = document.createElement('label');
@@ -797,7 +794,7 @@
     body.innerHTML = '';
     if (!r || !b) return;
     $('#ingTitle').textContent = r.name + ' · ' + Calc.formatG(b.loafG);
-    if (isYeastRecipe(r)) {
+    if (Convert.isYeastRecipe(r)) {
       var toggle = function (label) {
         var btn = txt('button', 'link', label); btn.type = 'button';
         btn.addEventListener('click', function () {
@@ -807,7 +804,8 @@
         return btn;
       };
       if (CONV && CONV.converted) {
-        body.appendChild(txt('p', 'hint', t('conv.note', { s: CONV.info.starterG, y: CONV.info.yeastG, f: CONV.info.factor })));
+        var starterNow = b.ingredients.reduce(function (a, i) { return a + (i.type === 'starter' ? i.g : 0); }, 0);
+        body.appendChild(txt('p', 'hint', t('conv.note', { s: Calc.formatG(starterNow), y: Calc.formatG(CONV.info.yeastG * b.scale), f: CONV.info.factor })));
         body.appendChild(toggle(t('conv.back')));
       } else if (CONV) {
         body.appendChild(txt('p', 'hint', t('conv.skipped')));
