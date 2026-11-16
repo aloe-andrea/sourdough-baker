@@ -7,7 +7,7 @@
   var t = I18n.t, L = I18n.L;
 
   var DEFAULTS = {
-    lang: 'en', target: null, preset: 'uno11-uno12', recipes: [], recipeId: null, loafG: null, ddt: 25, tempC: 22,
+    lang: 'en', target: null, preset: 'uno11-uno12', recipes: [], recipeId: null, loafG: null, useStarter: true, ddt: 25, tempC: 22,
     quietOn: true, quiet: { start: '23:00', end: '07:00' },
     done: {}, view: 'home'
   };
@@ -25,10 +25,16 @@
   var BUILT = null;      // the current recipe turned into steps and grams
 
   function currentRecipe() { return S.recipes.filter(function (r) { return r.id === S.recipeId; })[0] || null; }
+  var CONV = null;       // result of the yeast to starter conversion for the current recipe, or null
   function build() {
     var r = currentRecipe();
-    BUILT = r ? Recipe.fromImported(r, S.preset, { loafG: S.loafG }) : null;
+    CONV = r && S.useStarter ? Convert.yeastToStarter(r, t('ty.starter')) : null;
+    BUILT = r ? Recipe.fromImported(CONV ? CONV.recipe : r, S.preset, { loafG: S.loafG }) : null;
     return BUILT;
+  }
+  function isYeastRecipe(r) {
+    var sum = function (type) { return r.ingredients.reduce(function (a, i) { return a + (i.type === type ? i.g : 0); }, 0); };
+    return sum('yeast') > 0 && !(sum('starter') > 0);
   }
   function currentSteps() { return BUILT ? BUILT.steps : []; }
   function waterStepId() {
@@ -791,6 +797,23 @@
     body.innerHTML = '';
     if (!r || !b) return;
     $('#ingTitle').textContent = r.name + ' · ' + Calc.formatG(b.loafG);
+    if (isYeastRecipe(r)) {
+      var toggle = function (label) {
+        var btn = txt('button', 'link', label); btn.type = 'button';
+        btn.addEventListener('click', function () {
+          S.useStarter = !S.useStarter; S.done = {}; save(); build(); renderChoices(); renderSizes(); recompute(); renderIngredients();
+        });
+        return btn;
+      };
+      if (CONV && CONV.converted) {
+        body.appendChild(txt('p', 'hint', t('conv.note', { s: CONV.info.starterG, y: CONV.info.yeastG, f: CONV.info.factor })));
+        body.appendChild(toggle(t('conv.back')));
+      } else if (CONV) {
+        body.appendChild(txt('p', 'hint', t('conv.skipped')));
+      } else {
+        body.appendChild(toggle(t('conv.use')));
+      }
+    }
     function list(items) {
       var ul = document.createElement('ul'); ul.className = 'list';
       items.forEach(function (it) {

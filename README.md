@@ -58,3 +58,7 @@ The photos were generated with Gemini for personal use. See `CREDITS.md`.
 Browsers cannot read other recipe sites (CORS), so pasted links go through a small Cloudflare Worker, `worker/relay.mjs`. It returns the schema.org recipe data of the page, or the page text, and stores nothing.
 
 Setup: Cloudflare dashboard, Workers & Pages, Create application, Hello World, Deploy, Edit code, paste `worker/relay.mjs`, Deploy. Put the `*.workers.dev` address in `config.js` (`window.SOURDOUGH_RELAY`). Only the GitHub Pages site and localhost may call it (`ALLOWED_ORIGINS` in the worker). If `config.js` has an empty address, the app asks for pasted page text instead.
+
+## Recipes with commercial yeast
+
+A recipe that uses yeast and no starter is converted to sourdough when it is built (`convert.js`): starter at 20% of the flour weight at 100% hydration, with half of its weight taken out of the flour and half out of the water, and the written bulk and final-proof times multiplied by 3 (by 4 for rich doughs with butter, eggs or sugar). Feeds are then planned as for any starter recipe. The ingredients screen explains what changed and has a switch to go back to the original recipe. The saved recipe is never modified.

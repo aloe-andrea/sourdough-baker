@@ -91,6 +91,10 @@
       'ing.waterCold': 'The water would need to be below 0 °C: use ice-cold water.',
       'ing.scaledUp': 'The first feed would be under 5 g, so the feeds are scaled up and the extra stays in the jar.',
       'ing.percent': 'baker’s %',
+      'conv.note': 'Converted from yeast: {s} g starter instead of {y} g yeast. Rises take about {f} times longer.',
+      'conv.back': 'Use the original yeast recipe',
+      'conv.use': 'Convert to sourdough',
+      'conv.skipped': 'This yeast recipe could not be converted (not enough water or flour). Shown as written.',
 
       'home.peek': 'Show the photo',
       'install.text': 'For the full-screen app: tap Share, then “Add to Home Screen”.',
@@ -243,6 +247,10 @@
       'ing.waterCold': 'L’acqua dovrebbe stare sotto 0 °C: usa acqua gelata.',
       'ing.scaledUp': 'Il primo rinfresco sarebbe sotto i 5 g, quindi i rinfreschi sono ingranditi e l’avanzo resta nel vasetto.',
       'ing.percent': '% del panettiere',
+      'conv.note': 'Convertita da lievito di birra: {s} g di pasta madre al posto di {y} g di lievito. Le lievitazioni durano circa {f} volte di più.',
+      'conv.back': 'Usa la ricetta originale con lievito di birra',
+      'conv.use': 'Converti a pasta madre',
+      'conv.skipped': 'Questa ricetta con lievito di birra non si può convertire (poca acqua o farina). Mostrata com’è.',
 
       'home.peek': 'Mostra la foto',
       'install.text': 'Per averla a schermo intero: tocca Condividi, poi “Aggiungi alla schermata Home”.',
