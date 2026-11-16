@@ -18,6 +18,7 @@
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } }
 
+  var IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   var S = load();
   I18n.set(S.lang);
   var PLAN = null;       // last computed plan
@@ -51,15 +52,17 @@
 
   // ---------- toast ----------
   var toastTimer;
-  function toast(msg) {
+  function toast(msg, ms) {
     var el = $('#toast');
     el.textContent = msg; el.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.hidden = true; }, 4500);
+    toastTimer = setTimeout(function () { el.hidden = true; }, ms || 4500);
   }
 
   // ---------- photos ----------
   var IMGS = window.IMAGES || [];
+  // personal photos (images.local.js, not published) replace the stand-ins
+  if (window.IMAGES_LOCAL && window.IMAGES_LOCAL.length) IMGS = IMGS.filter(function (i) { return !i.standin; }).concat(window.IMAGES_LOCAL);
   var CAT_FOR = { starter: 'starter', impasto: 'dough', pieghe: 'dough', bulk: 'dough', forma: 'dough',
                   frigo: 'mood', forno: 'dough', cottura: 'loaf', pane: 'loaf' };
   var bgLayers = [$('#bgA'), $('#bgB')], bgIdx = 0, currentImg = null;
@@ -76,6 +79,7 @@
     var r = document.documentElement.style;
     document.body.dataset.side = img.side || 'left';
     r.setProperty('--panel', pal.panel);
+    r.setProperty('--panel-solid', pal.panel.replace(/,\s*[\d.]+\)$/, ',0.96)'));
     r.setProperty('--ink', pal.ink);
     r.setProperty('--accent', pal.accent);
     r.setProperty('--btn-ink', pal.btnInk);
@@ -140,6 +144,7 @@
     document.querySelectorAll('.lang button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.lang === I18n.get())); });
     document.querySelectorAll('[data-i18n-aria]').forEach(function (el) { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
     renderChoices();
+    renderQuick();
     refreshQuoteLang();
     if (currentImg) setBackdrop(currentImg, true);
     if (view === 'now') renderNow(true);
@@ -150,10 +155,12 @@
   // ---------- views ----------
   function show(v) {
     view = v; S.view = v; save();
+    document.body.classList.remove('peek');
     document.body.dataset.view = v;
     ['intro', 'home', 'now', 'plan'].forEach(function (n) { $('#view-' + n).hidden = n !== v; });
     $('#helpBtn').hidden = v === 'intro';
     $('#view-' + v).scrollTop = 0;
+    if (v === 'home' && IOS && !window.navigator.standalone && !S.hint) { S.hint = true; save(); toast(t('install.text'), 9000); }
     if (v === 'home' || v === 'intro') setBackdrop(homeImage());
     else {
       var act = activeStep();
@@ -184,6 +191,25 @@
   function renderChoices() {
     renderGroup('#presets', '#presetDesc', Recipe.PRESETS, S.preset, function (id) { S.preset = id; S.done = {}; save(); });
     renderGroup('#methods', '#methodDesc', Recipe.METHODS, S.method, function (id) { S.method = id; S.done = {}; save(); });
+  }
+
+  // quick picks for the day and time
+  function nextDow(dow, h, m) {
+    var d = new Date(); d.setHours(h, m, 0, 0);
+    var add = (dow - d.getDay() + 7) % 7;
+    if (add === 0 && d.getTime() <= Date.now()) add = 7;
+    d.setDate(d.getDate() + add);
+    return d.getTime();
+  }
+  function renderQuick() {
+    var box = $('#quickDates'); box.innerHTML = '';
+    [[6, 13, 0], [0, 13, 0], [0, 19, 0]].forEach(function (q) {
+      var ms = nextDow(q[0], q[1], q[2]);
+      var b = document.createElement('button'); b.type = 'button';
+      b.textContent = cap(new Date(ms).toLocaleDateString(I18n.locale(), { weekday: 'short' })) + ' ' + pad(q[1]) + ':' + pad(q[2]);
+      b.addEventListener('click', function () { S.target = ms; $('#target').value = toLocalInput(ms); save(); $('#startNowOut').hidden = true; });
+      box.appendChild(b);
+    });
   }
 
   function fillForm() {
@@ -243,6 +269,10 @@
       save(); recompute(); show('now');
     });
     $('#helpBtn').addEventListener('click', function () { show('intro'); });
+    $('#peekBtn').addEventListener('click', function () { document.body.classList.toggle('peek'); });
+    document.addEventListener('click', function (e) {
+      if (document.body.classList.contains('peek') && !e.target.closest('.help, .lang')) document.body.classList.remove('peek');
+    });
     $('#introGo').addEventListener('click', function () { S.intro = true; save(); show('home'); });
     $('#toPlan').addEventListener('click', function () { show('plan'); });
     $('#toHome').addEventListener('click', function () { show('home'); });
@@ -481,8 +511,6 @@
     li.appendChild(head); li.appendChild(detail);
     return li;
   }
-
-  var IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   // ---------- calendar export ----------
   function exportCalendar() {

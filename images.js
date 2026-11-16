@@ -1,27 +1,5 @@
 window.IMAGES = [
  {
-  "p": "assets/img/starter_00-p.webp",
-  "l": "assets/img/starter_00-l.webp",
-  "use": "starter",
-  "title": "Starter jar and flour",
-  "credit": "Gemini",
-  "license": "personal use",
-  "lum": 140,
-  "side": "right",
-  "light": {
-   "panel": "rgba(229,225,221,0.74)",
-   "ink": "#201610",
-   "accent": "#6f4f25",
-   "btnInk": "#fff9ee"
-  },
-  "dark": {
-   "panel": "rgba(45,42,37,0.66)",
-   "ink": "#fff8ec",
-   "accent": "#dec19c",
-   "btnInk": "#24180e"
-  }
- },
- {
   "p": "assets/img/dough_00-p.webp",
   "l": "assets/img/dough_00-l.webp",
   "use": "dough",
@@ -31,15 +9,15 @@ window.IMAGES = [
   "lum": 146,
   "side": "left",
   "light": {
-   "panel": "rgba(226,220,216,0.74)",
-   "ink": "#20150e",
-   "accent": "#7a4429",
+   "panel": "rgba(232,227,224,0.60)",
+   "ink": "#1f150e",
+   "accent": "#6e3d25",
    "btnInk": "#fff9ee"
   },
   "dark": {
-   "panel": "rgba(43,37,32,0.66)",
+   "panel": "rgba(33,28,25,0.58)",
    "ink": "#fff8ec",
-   "accent": "#deb29b",
+   "accent": "#ddb19a",
    "btnInk": "#24180e"
   }
  },
@@ -53,15 +31,15 @@ window.IMAGES = [
   "lum": 148,
   "side": "left",
   "light": {
-   "panel": "rgba(232,226,222,0.74)",
+   "panel": "rgba(236,232,229,0.60)",
    "ink": "#211610",
-   "accent": "#814b2b",
+   "accent": "#774528",
    "btnInk": "#fff9ee"
   },
   "dark": {
-   "panel": "rgba(48,43,38,0.66)",
+   "panel": "rgba(38,33,30,0.58)",
    "ink": "#fff8ec",
-   "accent": "#e4c2ad",
+   "accent": "#e5c3b0",
    "btnInk": "#24180e"
   }
  },
@@ -75,37 +53,15 @@ window.IMAGES = [
   "lum": 90,
   "side": "left",
   "light": {
-   "panel": "rgba(216,205,198,0.74)",
+   "panel": "rgba(224,216,210,0.60)",
    "ink": "#1d120b",
-   "accent": "#56361d",
+   "accent": "#4a2f19",
    "btnInk": "#fff9ee"
   },
   "dark": {
-   "panel": "rgba(32,22,14,0.66)",
+   "panel": "rgba(25,17,11,0.58)",
    "ink": "#fff8ec",
-   "accent": "#c68755",
-   "btnInk": "#24180e"
-  }
- },
- {
-  "p": "assets/img/mood_00-p.webp",
-  "l": "assets/img/mood_00-l.webp",
-  "use": "mood",
-  "title": "Village bakery",
-  "credit": "Gemini",
-  "license": "personal use",
-  "lum": 138,
-  "side": "left",
-  "light": {
-   "panel": "rgba(221,214,208,0.74)",
-   "ink": "#1f140d",
-   "accent": "#674022",
-   "btnInk": "#fff9ee"
-  },
-  "dark": {
-   "panel": "rgba(38,30,25,0.66)",
-   "ink": "#fff8ec",
-   "accent": "#d09a71",
+   "accent": "#ca8f60",
    "btnInk": "#24180e"
   }
  },
@@ -119,16 +75,106 @@ window.IMAGES = [
   "lum": 121,
   "side": "left",
   "light": {
-   "panel": "rgba(218,207,197,0.74)",
+   "panel": "rgba(224,216,209,0.60)",
    "ink": "#1e120a",
-   "accent": "#553819",
+   "accent": "#513518",
    "btnInk": "#fff9ee"
   },
   "dark": {
-   "panel": "rgba(34,23,14,0.66)",
+   "panel": "rgba(25,17,10,0.58)",
    "ink": "#fff8ec",
-   "accent": "#ca8d4b",
+   "accent": "#ca8a48",
    "btnInk": "#24180e"
   }
+ },
+ {
+  "p": "assets/img/mood_00-p.webp",
+  "l": "assets/img/mood_00-l.webp",
+  "use": "mood",
+  "title": "Village bakery",
+  "credit": "Gemini",
+  "license": "personal use",
+  "lum": 138,
+  "side": "left",
+  "light": {
+   "panel": "rgba(229,224,220,0.60)",
+   "ink": "#1f140d",
+   "accent": "#5b391e",
+   "btnInk": "#fff9ee"
+  },
+  "dark": {
+   "panel": "rgba(30,25,21,0.58)",
+   "ink": "#fff8ec",
+   "accent": "#d3a27c",
+   "btnInk": "#24180e"
+  }
+ },
+ {
+  "p": "assets/img/mood_01-p.webp",
+  "l": "assets/img/mood_01-l.webp",
+  "use": "mood",
+  "title": "Starter jar and flour",
+  "credit": "Gemini",
+  "license": "personal use",
+  "lum": 140,
+  "side": "right",
+  "light": {
+   "panel": "rgba(234,231,228,0.60)",
+   "ink": "#20160f",
+   "accent": "#634621",
+   "btnInk": "#fff9ee"
+  },
+  "dark": {
+   "panel": "rgba(35,32,29,0.58)",
+   "ink": "#fff8ec",
+   "accent": "#dec09b",
+   "btnInk": "#24180e"
+  }
+ },
+ {
+  "p": "assets/img/dough_01-p.webp",
+  "l": "assets/img/dough_01-l.webp",
+  "use": "starter",
+  "title": "Scoring a loaf",
+  "credit": "Gemini",
+  "license": "personal use",
+  "lum": 148,
+  "side": "left",
+  "light": {
+   "panel": "rgba(236,232,229,0.60)",
+   "ink": "#211610",
+   "accent": "#774528",
+   "btnInk": "#fff9ee"
+  },
+  "dark": {
+   "panel": "rgba(38,33,30,0.58)",
+   "ink": "#fff8ec",
+   "accent": "#e5c3b0",
+   "btnInk": "#24180e"
+  },
+  "standin": true
+ },
+ {
+  "p": "assets/img/dough_00-p.webp",
+  "l": "assets/img/dough_00-l.webp",
+  "use": "starter",
+  "title": "Folding the dough",
+  "credit": "Gemini",
+  "license": "personal use",
+  "lum": 146,
+  "side": "left",
+  "light": {
+   "panel": "rgba(232,227,224,0.60)",
+   "ink": "#1f150e",
+   "accent": "#6e3d25",
+   "btnInk": "#fff9ee"
+  },
+  "dark": {
+   "panel": "rgba(33,28,25,0.58)",
+   "ink": "#fff8ec",
+   "accent": "#ddb19a",
+   "btnInk": "#24180e"
+  },
+  "standin": true
  }
 ];

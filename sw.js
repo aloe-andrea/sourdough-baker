@@ -1,5 +1,5 @@
 /* Offline cache. Bump VERSION whenever app files change. */
-var VERSION = 'sourdough-v3';
+var VERSION = 'sourdough-v7';
 var CORE = ['./', 'index.html', 'styles.css', 'app.js', 'planner.js', 'recipe.js', 'i18n.js', 'ics.js', 'quotes.js', 'images.js',
             'manifest.webmanifest', 'assets/fonts/sora.woff2', 'assets/fonts/instrument-serif-italic.woff2',
             'assets/icons/icon-192.png', 'assets/icons/icon-512.png'];

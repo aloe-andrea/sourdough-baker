@@ -53,7 +53,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .screen { position: fixed; z-index: 2; inset: 0 0 auto 0; height: var(--h); display: flex; align-items: center; justify-content: center;
           padding: calc(56px + env(safe-area-inset-top)) 22px calc(88px + env(safe-area-inset-bottom)); overflow-y: auto; }
 .stack { width: 100%; max-width: 600px; margin: auto; animation: rise .6s ease both;
-         background: var(--panel); -webkit-backdrop-filter: blur(22px) saturate(1.15); backdrop-filter: blur(22px) saturate(1.15);
+         background: var(--panel); -webkit-backdrop-filter: blur(12px) saturate(1.1); backdrop-filter: blur(12px) saturate(1.1);
          border: 1px solid var(--line-soft); border-radius: 26px; padding: 30px 28px; }
 .stack.center { text-align: center; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -127,7 +127,7 @@ form > .cta { width: 100%; padding: 17px; }
 
 /* plan */
 .screen.scroll { align-items: flex-start; height: auto; bottom: 64px; padding-bottom: 24px; }
-.plan-wrap { width: 100%; max-width: 640px; margin: 0 auto; animation: rise .5s ease both; background: var(--panel); -webkit-backdrop-filter: blur(22px) saturate(1.15); backdrop-filter: blur(22px) saturate(1.15);
+.plan-wrap { width: 100%; max-width: 640px; margin: 0 auto; animation: rise .5s ease both; background: var(--panel); -webkit-backdrop-filter: blur(12px) saturate(1.1); backdrop-filter: blur(12px) saturate(1.1);
              border: 1px solid var(--line-soft); border-radius: 26px; padding: 22px 22px 14px; }
 .plan-wrap .back { padding-left: 0; display: block; }
 #planSub { margin: 8px 0 0; color: var(--ink-soft); }
@@ -226,4 +226,115 @@ body[data-view="intro"] .quote { display: none; }
   .screen:not(.scroll) { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
   #view-now { padding-bottom: calc(176px + env(safe-area-inset-bottom)); }
   .bottom { padding-top: 24px; }
+}
+
+/* "show the photo": hides the panels so the picture is fully visible; tap anywhere to bring them back */
+.help.peek { left: 60px; }
+.screen, .bottom .quote, .plan-wrap { transition: opacity .45s ease; }
+body.peek .screen, body.peek .bottom .quote { opacity: 0 !important; pointer-events: none; }
+body.peek .bottom::before { opacity: .6; }
+
+/* quick day and time picks */
+.quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+#quickDates { display: contents; }
+.quick button { all: unset; cursor: pointer; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); font-size: var(--fs-small); color: var(--ink-soft); }
+.quick button:hover { color: var(--ink); border-color: var(--ink); }
+.quick button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.quick .startnow-pill { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 60%, transparent); font-weight: 500; }
+.startnow { margin: 0; }
+.startnow-out { margin: 0 0 var(--gap); padding: 14px 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line-soft); }
+
+/* PHONES: the photo fills the top, a bottom sheet holds the controls */
+@media (max-width: 600px) and (orientation: portrait) {
+  :root { --photo-h: 34dvh; }
+  body[data-view="now"] { --photo-h: 44dvh; }
+  body[data-view="plan"] { --photo-h: 22dvh; }
+  body[data-view="home"], body[data-view="intro"] { --photo-h: 28dvh; }
+  :root { --gap: 16px; }
+  body.peek { --photo-h: 100dvh; }
+  .bg, .veil { height: var(--photo-h); transition: opacity 2.2s ease, height .45s ease, background-color 2.2s ease; }
+  .veil { background: linear-gradient(180deg, rgba(0, 0, 0, .22), rgba(0, 0, 0, 0) 45%); }
+  html, body { background: var(--panel-solid, #2a2018); }
+
+  .screen, .screen:not(.scroll), .screen.scroll { position: fixed; inset: auto 0 0 0; height: auto; display: block; padding: 0; overflow: visible; }
+  .stack, .plan-wrap { display: flex; flex-direction: column; width: 100%; max-width: none; margin: 0 !important;
+         min-height: calc(100dvh - var(--photo-h) + 28px); max-height: calc(100dvh - var(--photo-h) + 28px); overflow-y: auto;
+         border-radius: 28px 28px 0 0; border-width: 1px 0 0; background: var(--panel-solid);
+         -webkit-backdrop-filter: none; backdrop-filter: none; padding: 22px 20px calc(22px + env(safe-area-inset-bottom)); }
+  .stack > *, .plan-wrap > * { flex-shrink: 0; }
+  .stack.center .row { margin-top: auto; padding-top: 18px; }
+  #view-now { padding-bottom: 0; }
+  body.peek .screen { transform: translateY(100%); }
+  .screen { transition: opacity .45s ease, transform .45s ease; }
+
+  .bottom { top: calc(var(--photo-h) - 54px); bottom: auto; padding: 0 14px; text-align: right; }
+  .bottom::before, .quote { display: none !important; }
+  .credit { color: #fff; opacity: 1; text-shadow: 0 1px 6px rgba(0, 0, 0, .8); font-size: .72rem; }
+  body.peek .bottom { top: auto; bottom: calc(14px + env(safe-area-inset-bottom)); }
+
+  .optdesc { display: none; }
+  #view-home h1 { font-size: 1.7rem; margin-bottom: 14px; }
+  #view-intro h1 { font-size: 1.7rem; }
+  #view-intro .lead { display: none; }
+  /* the main button stays reachable while the sheet scrolls */
+  form > .cta, #view-intro .cta { position: sticky; bottom: calc(-22px - env(safe-area-inset-bottom)); margin-top: auto; box-shadow: 0 -14px 14px -4px var(--panel-solid); }
+  /* touch targets: at least 44 px */
+  .seg span, .tabs button, .quick button { min-height: 44px; display: flex; align-items: center; padding-top: 0; padding-bottom: 0; }
+  .quick button { min-height: 40px; }
+  .quick { margin-top: 10px; }
+  .link, .ghost { min-height: 44px; display: inline-flex; align-items: center; }
+  .cta { min-height: 52px; }
+  .help { width: 40px; height: 40px; }
+  .help.peek { left: 64px; }
+  .detail .actions button { min-height: 44px; }
+}
+
+.toast { width: max-content; }
+@media (max-width: 600px) and (orientation: portrait) {
+  :root { --gap: 12px; }
+  body[data-view="home"], body[data-view="intro"] { --photo-h: 26dvh; }
+  .toast { top: calc(64px + env(safe-area-inset-top)); bottom: auto; }
+  .seg span, .tabs button { min-height: 42px; }
+  .quick button { min-height: 36px; }
+  .stack, .plan-wrap { padding-top: 18px; }
+  #view-home h1 { font-size: 1.6rem; margin-bottom: 10px; }
+}
+
+/* PHONES, "now" screen: the photo fills the screen and the next step is written straight on it */
+@media (max-width: 600px) and (orientation: portrait) {
+  body[data-view="now"] { --photo-h: 100dvh; }
+  body[data-view="now"] .veil {
+    background: linear-gradient(0deg, rgba(10, 6, 3, .8) 0%, rgba(10, 6, 3, .52) 38%, rgba(10, 6, 3, 0) 70%),
+                linear-gradient(180deg, rgba(0, 0, 0, .28), rgba(0, 0, 0, 0) 22%);
+  }
+  #view-now { inset: 0; display: flex; align-items: flex-end; }
+  #view-now .stack {
+    --ink: #fff8ec; --btn-ink: #2a1a0f; --accent: #f3d29c;
+    --ink-soft: rgba(255, 248, 236, .82); --line: rgba(255, 248, 236, .4); --line-soft: rgba(255, 248, 236, .2); --card: rgba(255, 248, 236, .1);
+    min-height: 0; max-height: none; overflow: visible; background: transparent; border: 0; border-radius: 0;
+    padding: 0 24px calc(46px + env(safe-area-inset-bottom)); color: var(--ink); text-shadow: 0 1px 18px rgba(0, 0, 0, .55);
+  }
+  #view-now .stack.center .row { margin-top: 18px; padding-top: 0; }
+  #view-now .cta, #view-now .ghost { text-shadow: none; }
+  #view-now .ghost { color: var(--ink-soft); }
+  #view-now .when-time { font-size: clamp(4.6rem, 26vw, 6.4rem); }
+  body[data-view="now"] .bottom { top: auto; bottom: calc(12px + env(safe-area-inset-bottom)); text-align: center; }
+  body[data-view="now"] .credit { opacity: .8; }
+  body.peek[data-view="now"] .bottom { bottom: calc(12px + env(safe-area-inset-bottom)); }
+}
+
+/* PHONES: full-screen photo, slightly transparent sheet so the picture shows through */
+@media (max-width: 600px) and (orientation: portrait) {
+  body[data-view], body.peek { --photo-h: 100dvh !important; }
+  .veil { background: linear-gradient(180deg, rgba(0, 0, 0, .22), rgba(0, 0, 0, 0) 30%); }
+  html, body { background: #2a2018; }
+  .stack, .plan-wrap { min-height: 0; max-height: 80dvh; background: var(--panel);
+         -webkit-backdrop-filter: blur(16px) saturate(1.1); backdrop-filter: blur(16px) saturate(1.1); }
+  form > .cta, #view-intro .cta { box-shadow: none; }
+  .bottom, body.peek .bottom { top: calc(58px + env(safe-area-inset-top)); bottom: auto; left: 0; right: auto; text-align: left; padding: 0 16px; }
+  body[data-view="now"] .bottom { top: calc(58px + env(safe-area-inset-top)); bottom: auto; text-align: left; }
+  .credit { max-width: 70vw; }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+  #view-home, #view-intro, #view-now, #view-plan { padding: 0 !important; }
 }
