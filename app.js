@@ -633,9 +633,26 @@
 
   function openImport() {
     $('#importMsg').innerHTML = '';
-    document.querySelector('input[name="imode"][value="text"]').checked = true;
-    $('#importText').hidden = false; $('#importAi').hidden = true;
+    $('#importAi').hidden = true;
     $('#importCancel').hidden = !S.recipes.length;
+  }
+
+  // a link: the relay downloads the page and sends back the recipe it finds
+  function readLink(url) {
+    var box = $('#importMsg'), relay = window.SOURDOUGH_RELAY;
+    if (!relay) { showMsgs(box, [{ code: 'no-relay' }], []); return; }
+    box.innerHTML = ''; var p = document.createElement('p'); p.className = 'msg'; p.textContent = t('recipe.reading'); box.appendChild(p);
+    $('#readText').disabled = true;
+    var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 25000);
+    fetch(relay + (relay.indexOf('?') < 0 ? '?' : '&') + 'url=' + encodeURIComponent(url), { signal: ctl.signal })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var res = RecipeImport.fromPage(data);
+        if (res.errors && res.errors.length) { showMsgs(box, res.errors, []); return; }
+        box.innerHTML = ''; openReview(res.recipe, res.warnings);
+      })
+      .catch(function () { showMsgs(box, [{ code: 'link-failed' }], []); })
+      .then(function () { clearTimeout(timer); $('#readText').disabled = false; });
   }
 
   function copyText(text) {
@@ -800,16 +817,12 @@
   }
 
   function bindRecipeUi() {
-    document.querySelectorAll('input[name="imode"]').forEach(function (r) {
-      r.addEventListener('change', function () {
-        $('#importText').hidden = r.value !== 'text' || !r.checked; $('#importAi').hidden = r.value !== 'ai' || !r.checked;
-        $('#importMsg').innerHTML = '';
-      });
-    });
+    $('#aiToggle').addEventListener('click', function () { $('#importAi').hidden = !$('#importAi').hidden; $('#importMsg').innerHTML = ''; });
     $('#useSample').addEventListener('click', function () { $('#recipeText').value = RecipeImport.SAMPLE[I18n.get()] || RecipeImport.SAMPLE.en; });
     $('#readText').addEventListener('click', function () {
       var text = $('#recipeText').value.trim();
       if (!text) { showMsgs($('#importMsg'), [{ code: 'no-text' }], []); return; }
+      if (/^https?:\/\/\S+$/i.test(text)) { readLink(text); return; }
       var r = RecipeImport.parseText(text);
       if (!r.recipe.ingredients.length) { showMsgs($('#importMsg'), [{ code: 'no-ingredients' }], []); return; }
       openReview(r.recipe, r.warnings);

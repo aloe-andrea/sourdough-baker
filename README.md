@@ -52,3 +52,9 @@ The planner is plain JavaScript with no dependencies. It finds plans with dynami
 ## Photos
 
 The photos were generated with Gemini for personal use. See `CREDITS.md`.
+
+## Recipe link relay
+
+Browsers cannot read other recipe sites (CORS), so pasted links go through a small Cloudflare Worker, `worker/relay.mjs`. It returns the schema.org recipe data of the page, or the page text, and stores nothing.
+
+Setup: Cloudflare dashboard, Workers & Pages, Create application, Hello World, Deploy, Edit code, paste `worker/relay.mjs`, Deploy. Put the `*.workers.dev` address in `config.js` (`window.SOURDOUGH_RELAY`). Only the GitHub Pages site and localhost may call it (`ALLOWED_ORIGINS` in the worker). If `config.js` has an empty address, the app asks for pasted page text instead.

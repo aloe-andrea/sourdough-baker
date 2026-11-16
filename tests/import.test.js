@@ -178,4 +178,19 @@ test('prompt per l AI in inglese e italiano contiene lo schema', () => {
   ['en', 'it'].forEach(l => { const p = RI.promptFor(l); assert.ok(p.includes('"phase"') && p.includes('"ingredients"') && p.includes('JSON')); });
 });
 
+test('fromPage: ricetta da blocco JSON-LD (Giallozafferano)', () => {
+  const r = RI.fromPage({ ok: true, source: 'jsonld', name: 'Brioche', ingredients: ['Farina Manitoba 500 g', 'Zucchero 100 g', 'Uova (medie) 150 g', 'Burro 100 g', 'Latte intero 100 g', 'Lievito di birra fresco 10 g', 'Sale fino 8 g'],
+    instructions: ['Impastate tutto per 15 minuti.', 'Lasciate lievitare per 2 ore.', 'Cuocete a 180° per 20 minuti.'] });
+  assert.ok(r.recipe && r.recipe.name === 'Brioche');
+  assert.ok(r.recipe.ingredients.some(i => i.type === 'flour' && i.g === 500));
+  assert.ok(r.recipe.steps.length >= 2);
+});
+test('fromPage: solo testo, errori', () => {
+  const ok = RI.fromPage({ ok: true, source: 'text', text: 'Ingredients\n500 g flour\n350 g water\n100 g starter\n10 g salt\nMethod\nMix. Bake 40 minutes at 230°C.' });
+  assert.ok(ok.recipe.ingredients.length >= 4);
+  assert.strictEqual(RI.fromPage({ ok: true, source: 'text', text: 'Hello world' }).errors[0].code, 'no-recipe-on-page');
+  assert.strictEqual(RI.fromPage({ ok: false, error: 'http-404' }).errors[0].code, 'link-failed');
+  assert.strictEqual(RI.fromPage(null).errors[0].code, 'link-failed');
+});
+
 console.log('\n' + passed + ' test passati' + (process.exitCode ? ', con errori' : ''));

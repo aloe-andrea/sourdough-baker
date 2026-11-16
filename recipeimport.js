@@ -240,6 +240,21 @@
     return r;
   }
 
+  // ---------- a recipe page, as returned by the relay ----------
+  // { source: 'jsonld', name, ingredients: [...], instructions: [...] }  or  { source: 'text', text }
+  function fromPage(data) {
+    if (!data || data.ok === false) return { recipe: null, errors: [{ code: 'link-failed' }], warnings: [] };
+    var r;
+    if (data.source === 'jsonld') {
+      r = parseText('Ingredienti\n' + data.ingredients.join('\n') + '\nPreparazione\n' + (data.instructions || []).join('\n'));
+      if (data.name) r.recipe.name = data.name;
+    } else {
+      r = parseText(data.text || '');
+      if (!r.recipe.ingredients.length) return { recipe: null, errors: [{ code: 'no-recipe-on-page' }], warnings: [] };
+    }
+    return r;
+  }
+
   // ---------- shared checks ----------
   function finish(recipe, warnings) {
     var has = function (t) { return recipe.ingredients.some(function (i) { return i.type === t && i.g > 0; }); };
@@ -318,5 +333,5 @@
     it: 'Ricetta: Pane di campagna\n\nIngredienti\n450 g di farina forte\n50 g di farina integrale\n375 g di acqua\n100 g di lievito madre attivo\n10 g di sale\n\nProcedimento\n1. Autolisi di farina e acqua per 45 minuti.\n2. Incorpora il lievito e il sale.\n3. Fermentazione di massa per 4-6 ore con 3 pieghe ogni 30 minuti.\n4. Preforma e riposo di 20 minuti, poi formatura.\n5. Lievitazione in frigo per tutta la notte, 8-12 ore.\n6. Preriscalda il forno a 250°C per 45 minuti.\n7. Cuoci coperto per 20 minuti, poi scoperto per 25 minuti.\n8. Raffredda per 1 ora.'
   };
 
-  return { PHASES: PHASES, DEF: DEF, parseText: parseText, fromJson: fromJson, assemble: assemble, promptFor: promptFor, SAMPLE: SAMPLE, durations: durations, foldsOf: foldsOf };
+  return { fromPage: fromPage, PHASES: PHASES, DEF: DEF, parseText: parseText, fromJson: fromJson, assemble: assemble, promptFor: promptFor, SAMPLE: SAMPLE, durations: durations, foldsOf: foldsOf };
 });

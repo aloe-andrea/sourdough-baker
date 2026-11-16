@@ -111,14 +111,12 @@
   <main id="view-import" class="screen" hidden>
     <div class="stack">
       <h1 data-i18n="recipe.title"></h1>
-      <div class="seg" role="radiogroup">
-        <label><input type="radio" name="imode" value="text" checked><span data-i18n="recipe.tabText"></span></label>
-        <label><input type="radio" name="imode" value="ai"><span data-i18n="recipe.tabAi"></span></label>
-      </div>
+      <p class="hint" data-i18n="recipe.help"></p>
       <div id="importText" class="ipane">
-        <textarea id="recipeText" rows="9" data-i18n-ph="recipe.placeholder"></textarea>
+        <textarea id="recipeText" rows="7" data-i18n-ph="recipe.placeholder"></textarea>
         <div class="irow"><button type="button" class="cta" id="readText" data-i18n="recipe.read"></button><button type="button" class="link" id="useSample" data-i18n="recipe.example"></button></div>
       </div>
+      <button type="button" class="link" id="aiToggle" data-i18n="recipe.aiToggle"></button>
       <div id="importAi" class="ipane" hidden>
         <p class="hint" data-i18n="recipe.aiHelp"></p>
         <button type="button" class="cta small" id="copyPrompt" data-i18n="recipe.copy"></button>
@@ -237,6 +235,7 @@
   <script src="images.js"></script>
   <script src="images.local.js" onerror="void 0"></script>
   <script src="quotes.js"></script>
+  <script src="config.js"></script>
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && (location.protocol === 'https:' || location.hostname === 'localhost')) {
