@@ -101,4 +101,19 @@ test('ricetta di AI (JSON) con brioche, senza pieghe', () => {
   assert.ok(res.steps.some(s => s.id === 'r-proof'));
 });
 
+test('ricetta con lievito di birra: nessun rinfresco, piano fattibile, se parto ora parte dall impasto', () => {
+  const rec = RI.parseText(['Ingredienti per 12 panini', 'Farina 500 g', 'Zucchero 80 g', 'Lievito di birra fresco 8 g', 'Acqua 150 g', 'Sale 6 g',
+    'Preparazione', "Impastate tutto. Lasciate lievitare per 2 ore e mezza. Lasciate lievitare ancora per un'ora. Cuocete a 190° per 18 minuti."].join(String.fromCharCode(10))).recipe;
+  const r = Recipe.fromImported(rec, 'uno11-uno12', { loafG: 700 });
+  assert.strictEqual(r.starterG, 0);
+  assert.ok(!r.steps.some(s => s.id.indexOf('rinfresco') === 0), 'nessun rinfresco');
+  assert.strictEqual(r.steps[0].id, 'r-mix');
+  const res = Planner.plan({ steps: r.steps, target: SAT_13, tempC: 22, quiet: QUIET });
+  assert.ok(res.ok, JSON.stringify(res.avvisi));
+  res.steps.forEach(st => assert.strictEqual(Planner.isBlocked(st.inizio, QUIET), false, st.id));
+  const start = new Date(2026, 10, 12, 9, 0).getTime();
+  const e = Planner.earliest({ steps: r.steps, tempC: 22, quiet: QUIET, start });
+  assert.ok(e.ok && !e.delayed, 'senza rinfreschi si puo partire di mattina');
+});
+
 console.log('\n' + passed + ' test passati' + (process.exitCode ? ', con errori' : ''));

@@ -271,7 +271,8 @@
     var ing = Calc.scaleTo(recipe.ingredients, loaf);
     var starterG = ing.reduce(function (a, i) { return a + (i.type === 'starter' ? i.g : 0); }, 0);
 
-    var feedSteps = preset.rinfreschi.map(function (k) { return clone(STEP[k]); });
+    // a recipe with commercial yeast (or no starter at all) has no feeds
+    var feedSteps = starterG > 0 ? preset.rinfreschi.map(function (k) { return clone(STEP[k]); }) : [];
     var fed = Calc.feeds(starterG, feedSteps.map(function (f) { return f.ratio; }));
     feedSteps.forEach(function (f, i) {
       if (fed[i]) f.grammi = [{ key: 'starter', g: fed[i].starter }, { key: 'flour', g: fed[i].flour }, { key: 'water', g: fed[i].water }];

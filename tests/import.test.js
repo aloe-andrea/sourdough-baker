@@ -11,6 +11,16 @@ function test(name, fn) {
 const g = (r, type) => r.ingredients.filter(i => i.type === type).reduce((a, i) => a + i.g, 0);
 const phases = r => r.steps.map(s => s.phase);
 
+const YEAST_IT = [
+  'INGREDIENTI', '250', 'Calorie per pezzo', 'Energia', 'Kcal', '250', 'Carboidrati', 'g', '30', '',
+  'Ingredienti per 12 panini dolci', 'Farina forte 500 g', 'Zucchero 80 g', 'Lievito di birra fresco 8 g', 'Acqua 150 g',
+  'Uova (circa 2) 100 g', 'Sale 6 g', 'Burro morbido 80 g', 'Scorza di arancia 1', 'Preparazione', 'Come preparare i panini dolci',
+  'Panini - 1', 'Panini - 2',
+  'Impastate farina, zucchero, lievito, acqua e uova. Unite il sale e poi il burro poco alla volta. Date un paio di pieghe senza fretta.',
+  "Lasciate lievitare l'impasto in una ciotola coperta per 2 ore e mezza. Formate 12 palline.",
+  "Lasciate lievitare ancora per un'ora. Cuocete in forno preriscaldato a 190° per 18 minuti. Lasciate intiepidire."
+].join('\n');
+
 test('durations: intervalli, valori singoli, ore e minuti insieme', () => {
   assert.deepStrictEqual(RI.durations('bulk for 4-6 hours'), [{ min: 240, max: 360 }]);
   assert.deepStrictEqual(RI.durations('rest 30 minutes'), [{ min: 30, max: 30 }]);
@@ -51,6 +61,36 @@ test('testo italiano: stessa ricetta, stessi risultati', () => {
   assert.strictEqual(g(it, 'starter'), 100);
   assert.deepStrictEqual(phases(it), phases(en));
   assert.strictEqual(it.bake.tempC, 250);
+});
+
+test('ricetta con lievito di birra, quantita in fondo alla riga, testo di un sito italiano', () => {
+  const { recipe, warnings } = RI.parseText(YEAST_IT);
+  assert.strictEqual(recipe.name, 'Panini dolci');
+  assert.strictEqual(g(recipe, 'flour'), 500);
+  assert.strictEqual(g(recipe, 'yeast'), 8);
+  assert.strictEqual(g(recipe, 'starter'), 0);
+  assert.strictEqual(g(recipe, 'water'), 150);
+  assert.strictEqual(g(recipe, 'salt'), 6);
+  assert.ok(!recipe.ingredients.some(i => /calorie|energia|carboidrati/i.test(i.name)), 'nessun valore nutrizionale tra gli ingredienti');
+  assert.ok(warnings.some(w => w.code === 'unit-not-converted' && /arancia/i.test(w.detail)));
+  assert.ok(!warnings.some(w => w.code === 'no-starter'), 'il lievito di birra basta');
+});
+
+test('piu frasi in un paragrafo: ore e mezza, un ora, gradi senza lettera', () => {
+  const { recipe } = RI.parseText(YEAST_IT);
+  assert.deepStrictEqual(phases(recipe), ['mix', 'bulk', 'proof', 'bake', 'cool']);
+  const bulk = recipe.steps.find(s => s.phase === 'bulk'), proof = recipe.steps.find(s => s.phase === 'proof'), bake = recipe.steps.find(s => s.phase === 'bake');
+  assert.strictEqual(bulk.minMin, 150);
+  assert.strictEqual(proof.minMin, 60);
+  assert.strictEqual(bake.minMin, 18);
+  assert.strictEqual(recipe.bake.tempC, 190);
+  assert.ok(!phases(recipe).includes('fold'), 'un paio di pieghe senza intervallo non sono un passo');
+  assert.deepStrictEqual(RI.assemble(recipe).map(a => a.phase), ['mix', 'shape', 'preheat', 'bake', 'cool']);
+});
+
+test('il lievito di birra non e il lievito madre; il lievito madre resta tale', () => {
+  const r = RI.parseText('500 g flour\n8 g fresh yeast\n100 g sourdough starter\n100 g lievito madre').recipe;
+  assert.deepStrictEqual(r.ingredients.map(i => i.type), ['flour', 'yeast', 'starter', 'starter']);
 });
 
 test('unita imperiali e Fahrenheit', () => {

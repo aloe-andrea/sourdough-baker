@@ -12,6 +12,7 @@
   var SPREAD = { autolyse: .25, bulk: .25, proof: .25, chill: .2, preshape: .25, shape: .25, mix: .25, fold: .25, preheat: .1, bake: .1, cool: .25 };
 
   var TYPE_WORDS = [
+    ['yeast', /lievito di birra|lievito secco|lievito fresco|lievito istantaneo|\byeast\b/i],
     ['starter', /starter|levain|lievito madre|lievito naturale|pasta madre|sourdough culture|mother|biga naturale/i],
     ['water', /\bwater\b|\bacqua\b/i],
     ['salt', /\bsalt\b|\bsale\b/i],
@@ -33,6 +34,19 @@
   // all durations in a line, as [{min, max}] in minutes (a single value has min === max)
   function durations(line) {
     var out = [], s = line;
+    // words first: "3 ore e mezza", "un'ora e mezza", "un'ora", "mezz'ora", "an hour"
+    s = s.replace(/(\d+(?:[.,]\d+)?)\s*(?:ore|ora|hours?|h)\s*(?:e mezza|e mezzo|and a half)/gi, function (m, a) {
+      out.push({ at: arguments[arguments.length - 2], min: Calc.num(a) * 60 + 30, max: Calc.num(a) * 60 + 30 }); return ' '.repeat(m.length);
+    });
+    s = s.replace(/\b(?:un['’]\s*ora|an hour|one hour)\s*(?:e mezza|e mezzo|and a half)/gi, function (m) {
+      out.push({ at: arguments[arguments.length - 2], min: 90, max: 90 }); return ' '.repeat(m.length);
+    });
+    s = s.replace(/\b(?:un['’]\s*ora|an hour|one hour)\b/gi, function (m) {
+      out.push({ at: arguments[arguments.length - 2], min: 60, max: 60 }); return ' '.repeat(m.length);
+    });
+    s = s.replace(/\b(?:mezz['’]\s*ora|half an hour)\b/gi, function (m) {
+      out.push({ at: arguments[arguments.length - 2], min: 30, max: 30 }); return ' '.repeat(m.length);
+    });
     s = s.replace(RANGE_RE, function (m, a, b, u) {
       var k = UNIT_MIN[u.toLowerCase()];
       out.push({ at: arguments[arguments.length - 2], min: Calc.num(a) * k, max: Calc.num(b) * k });
@@ -54,8 +68,8 @@
   }
 
   function tempOf(line) {
-    var m = line.match(/(\d{2,3})\s*°?\s*([CF])\b/i);
-    return m ? Calc.toC(+m[1], m[2]) : null;
+    var m = line.match(/(\d{2,3})\s*°\s*([CF])?\b/i) || line.match(/(\d{2,3})\s*([CF])\b/i);
+    return m ? Calc.toC(+m[1], m[2] || 'C') : null;
   }
 
   // "3 folds every 30 minutes", "folds every 30 min for 2 hours", "tre pieghe ogni 30 minuti"
@@ -83,6 +97,8 @@
   var NUM = '(\\d+\\s+\\d+/\\d+|\\d+/\\d+|\\d+(?:[.,]\\d+)?\\s*[½¼¾]?|[½¼¾⅓⅔])';
   var ING_A = new RegExp('^\\s*(?:[-*•·]\\s*)?' + NUM + '\\s*(' + UNIT_WORDS + ')\\b\\.?\\s*(?:of\\s+|di\\s+|d[\'’]\\s*)?(.+?)\\s*(?:\\(.*\\))?\\s*$', 'i');
   var ING_B = new RegExp('^\\s*(?:[-*•·]\\s*)?([^\\d:]{2,40}?)\\s*[:\\-–]\\s*' + NUM + '\\s*(' + UNIT_WORDS + ')\\b', 'i');
+  var ING_C = new RegExp('^\\s*(?:[-*•·]\\s*)?([^\\d].{1,70}?)\\s+' + NUM + '\\s*(' + UNIT_WORDS + ')\\b\\.?\\s*$', 'i');
+  var ING_COUNT = /^\s*(?:[-*•·]\s*)?([^\d:][^\d]{2,50}?)\s+(\d+)\s*$/;
   var ING_EGG = /^\s*(?:[-*•·]\s*)?(\d+)\s+(?:large\s+|medium\s+|grandi\s+)?(?:eggs?|uova|uovo)\b/i;
 
   var STEP_WORDS = [
@@ -91,15 +107,17 @@
     ['fold', /\bfolds?\b|pieghe|\bpiega\b|stretch and fold/i],
     ['preshape', /pre-?shape|preforma|pirlatura|bench rest|riposo sul piano/i],
     ['chill', /fridge|refrigerat|retard|cold proof|cold ferment|frigo|overnight|tutta la notte|per la notte/i],
-    ['proof', /final proof|second rise|final rise|\bproof\b|lievitazione finale|seconda lievitazione|\bappretto\b/i],
+    ['proof', /final proof|second rise|final rise|\bproof\b|lievitazione finale|seconda lievitazione|\bappretto\b|lievitare ancora|ancora per|lievitazione ulteriore/i],
     ['shape', /\bshape\b|shaping|formatura|dai la forma|forma(re)? il pane/i],
-    ['bulk', /bulk|first rise|prima lievitazione|fermentazione|ferment/i],
+    ['bulk', /bulk|first rise|prima lievitazione|fermentazione|ferment|lievitar|lievitazion|lievitat/i],
     ['bake', /\bbake\b|baking|\bcuoci\b|\bcottura\b|\binforna/i],
-    ['cool', /\bcool\b|raffredd/i],
+    ['cool', /\bcool\b|raffredd|intiepid/i],
     ['mix', /\bmix\b|knead|impasta|incorpora|combine|mescola/i]
   ];
 
   function phaseOf(line) {
+    // "bake in the preheated oven" is the bake, not the preheating
+    if (/preriscald|preheat/i.test(line) && /\bbake\b|\bcuoc|\binforn|\bcottura/i.test(line)) return 'bake';
     for (var i = 0; i < STEP_WORDS.length; i++) if (STEP_WORDS[i][1].test(line)) return STEP_WORDS[i][0];
     return null;
   }
@@ -108,6 +126,7 @@
     var m, name, n, unit, g;
     if ((m = line.match(ING_A))) { n = Calc.num(m[1]); unit = m[2]; name = m[3]; }
     else if ((m = line.match(ING_B))) { name = m[1]; n = Calc.num(m[2]); unit = m[3]; }
+    else if (line.length <= 90 && !/[.!?]\s*$/.test(line) && (m = line.match(ING_C))) { name = m[1]; n = Calc.num(m[2]); unit = m[3]; }
     else if ((m = line.match(ING_EGG))) {
       warnings.push({ code: 'egg-weight', detail: m[1] });
       var en = line.replace(/^\s*[-*•·]?\s*\d+\s+/, '').trim();
@@ -126,7 +145,7 @@
     var rest = fold ? line.replace(fold.text, ' ') : line;
     var phase = phaseOf(rest), out = [];
     if (fold) out.push({ phase: 'fold', count: fold.count, everyMin: fold.everyMin, est: !!fold.est });
-    else if (phase === 'fold') return [{ phase: 'fold', count: 3, everyMin: 30, est: true }];
+    else if (phase === 'fold') return /every|each|ogni|times|volte/i.test(line) ? [{ phase: 'fold', count: 3, everyMin: 30, est: true }] : null;
     if (!phase || phase === 'fold') return out.length ? out : null;
     var d = durations(rest), t = tempOf(line), st = { phase: phase };
     if (phase === 'bake') {
@@ -141,24 +160,50 @@
 
   var HEAD_RE = /^\s*(ingredients?|ingredienti|method|instructions?|directions?|steps?|procedimento|preparazione|metodo)\s*:?\s*$/i;
   var TITLE_RE = /^\s*(?:recipe|ricetta)\s*:\s*(.+)$/i;
+  var ING_HEAD = /^\s*(ingredients?|ingredienti)\b/i;
+  var METHOD_HEAD = /^\s*(preparazione|procedimento|metodo|method|instructions?|directions?|come preparare|how to make|how to)\b/i;
+  var CAPTION = /^[\wÀ-ÿ' ]{2,40}\s+-\s+\d{1,3}\s*$/;   // "Brioche - 12": picture captions on recipe sites
+
+  function sentences(par) { return par.split(/(?<=[.!?])\s+(?=[A-ZÀ-Ý0-9])/); }
 
   function parseText(text) {
-    var warnings = [], ingredients = [], steps = [], name = '';
-    var lines = String(text || '').replace(/\r/g, '').split('\n');
-    var seenPhase = {};
-    lines.forEach(function (raw) {
+    var warnings = [], ingredients = [], steps = [], name = '', inIng = false;
+    var seen = 0;
+    String(text || '').replace(/\r/g, '').split('\n').forEach(function (raw) {
       var line = raw.trim();
-      if (!line || HEAD_RE.test(line)) return;
+      var first = line && seen++ === 0;      // the very first line of the text may be its title
+      if (!line || HEAD_RE.test(line) || CAPTION.test(line)) { if (HEAD_RE.test(line)) inIng = ING_HEAD.test(line); return; }
       var tm = line.match(TITLE_RE);
       if (tm) { name = tm[1].trim(); return; }
-      var body = line.replace(/^\d+[.)]\s+/, '');           // "1. Mix ..." is a step number, not an amount
+      if (ING_HEAD.test(line) && line.length <= 60) {
+        inIng = true;
+        var im = line.match(/^\s*ingredienti per \d+\s+(.+)$/i) || line.match(/^\s*ingredients for \d+\s+(.+)$/i);
+        if (im && !name) name = im[1].trim();
+        return;
+      }
+      if (METHOD_HEAD.test(line) && line.length <= 60) {
+        inIng = false;
+        var mm = line.match(/^\s*come preparare\s+(?:le |la |il |i |gli |l['’])?(.+)$/i) || line.match(/^\s*how to make\s+(?:the |a )?(.+)$/i);
+        if (mm && !name) name = mm[1].trim();
+        return;
+      }
       var ing = /^\d+[.)]\s+/.test(line) ? null : ingredientOf(line, warnings);
       if (ing) { ingredients.push(ing); return; }
-      var st = stepFromLine(body);
-      if (st) { st.forEach(function (s) { steps.push(s); seenPhase[s.phase] = true; }); return; }
-      if (!name && !steps.length && !ingredients.length && line.length <= 60) name = line.replace(/[:.]$/, '');
+      if (inIng && ING_COUNT.test(line) && !/^\s*\d/.test(line)) {      // "Lemon zest 1": a count with no weight
+        var cm = line.match(ING_COUNT);
+        warnings.push({ code: 'unit-not-converted', detail: cm[1].trim() + ' (' + cm[2] + ')' });
+        ingredients.push({ name: cm[1].trim().replace(/^./, function (c) { return c.toUpperCase(); }), g: 0, type: typeOf(cm[1]) });
+        return;
+      }
+      if (/^[\d.,\s]+$/.test(line)) return;                              // a bare number: leftovers of a table
+      var found = false;
+      sentences(line.replace(/^\d+[.)]\s+/, '')).forEach(function (sent) {
+        var st = stepFromLine(sent);
+        if (st) { st.forEach(function (x) { steps.push(x); }); found = true; }
+      });
+      if (!found && first && !name && line.length <= 60 && /[A-Za-zÀ-ÿ]{3}/.test(line)) name = line.replace(/[:.]$/, '');
     });
-    return finish({ name: name, ingredients: ingredients, steps: steps }, warnings);
+    return finish({ name: name.replace(/^./, function (c) { return c.toUpperCase(); }), ingredients: ingredients, steps: steps }, warnings);
   }
 
   // ---------- JSON (from the user's own AI) ----------
@@ -175,7 +220,7 @@
     var ing = (obj.ingredients || []).map(function (i, k) {
       var g = Number(i.g);
       if (!(g >= 0)) { errors.push({ code: 'bad-grams', detail: String(i.name || k) }); g = 0; }
-      return { name: String(i.name || 'Ingredient'), g: g, type: ['flour', 'water', 'starter', 'salt', 'other'].indexOf(i.type) >= 0 ? i.type : typeOf(String(i.name || '')) };
+      return { name: String(i.name || 'Ingredient'), g: g, type: ['flour', 'water', 'starter', 'yeast', 'salt', 'other'].indexOf(i.type) >= 0 ? i.type : typeOf(String(i.name || '')) };
     });
     var steps = [];
     (obj.steps || []).forEach(function (s) {
@@ -200,7 +245,7 @@
     var has = function (t) { return recipe.ingredients.some(function (i) { return i.type === t && i.g > 0; }); };
     if (!has('flour')) warnings.push({ code: 'no-flour' });
     if (!has('water')) warnings.push({ code: 'no-water' });
-    if (!has('starter')) warnings.push({ code: 'no-starter' });
+    if (!has('starter') && !has('yeast')) warnings.push({ code: 'no-starter' });
     if (!has('salt')) warnings.push({ code: 'no-salt' });
     if (!recipe.steps.some(function (s) { return s.phase === 'bake'; })) warnings.push({ code: 'no-bake' });
     var bake = recipe.steps.filter(function (s) { return s.phase === 'bake'; })[0];
@@ -259,11 +304,11 @@
     en: 'Read the sourdough or bread recipe I am sending (a link, a screenshot, a photo or pasted text) and reply with ONLY one JSON object, no other text, in exactly this shape:\n' +
         '{"name": "Recipe name",\n "ingredients": [{"name": "Bread flour", "g": 450, "type": "flour"}, {"name": "Water", "g": 340, "type": "water"}, {"name": "Active starter", "g": 90, "type": "starter"}, {"name": "Salt", "g": 10, "type": "salt"}],\n' +
         ' "steps": [{"phase": "autolyse", "minMin": 30, "maxMin": 60}, {"phase": "mix"}, {"phase": "fold", "count": 3, "everyMin": 30}, {"phase": "bulk", "minMin": 240, "maxMin": 360}, {"phase": "shape"}, {"phase": "chill", "minMin": 480, "maxMin": 720}, {"phase": "preheat", "minMin": 45}, {"phase": "bake", "minMin": 45, "tempC": 250}]}\n' +
-        'Rules: all amounts in grams (convert cups, ounces, millilitres of water and milk), times in minutes, temperatures in Celsius. "type" is one of flour, water, starter, salt, other. "phase" is one of autolyse, mix, fold, bulk, preshape, shape, chill (fridge rest), proof (final room-temperature rise), preheat, bake, cool. Give the total time of the bulk fermentation in "bulk" (folds happen inside it). Leave out any step the recipe does not have. Ignore how to build or feed the starter: only the amount of active starter used in the dough. If the recipe gives baker\'s percentages, compute grams for 900 g of dough in total.',
+        'Rules: all amounts in grams (convert cups, ounces, millilitres of water and milk), times in minutes, temperatures in Celsius. "type" is one of flour, water, starter, yeast (commercial yeast), salt, other. "phase" is one of autolyse, mix, fold, bulk, preshape, shape, chill (fridge rest), proof (final room-temperature rise), preheat, bake, cool. Give the total time of the bulk fermentation in "bulk" (folds happen inside it). Leave out any step the recipe does not have. Ignore how to build or feed the starter: only the amount of active starter used in the dough. If the recipe gives baker\'s percentages, compute grams for 900 g of dough in total.',
     it: 'Leggi la ricetta di pane o lievito madre che ti mando (link, screenshot, foto o testo incollato) e rispondi SOLO con un oggetto JSON, senza altro testo, in questa forma esatta:\n' +
         '{"name": "Nome ricetta",\n "ingredients": [{"name": "Farina", "g": 450, "type": "flour"}, {"name": "Acqua", "g": 340, "type": "water"}, {"name": "Lievito madre attivo", "g": 90, "type": "starter"}, {"name": "Sale", "g": 10, "type": "salt"}],\n' +
         ' "steps": [{"phase": "autolyse", "minMin": 30, "maxMin": 60}, {"phase": "mix"}, {"phase": "fold", "count": 3, "everyMin": 30}, {"phase": "bulk", "minMin": 240, "maxMin": 360}, {"phase": "shape"}, {"phase": "chill", "minMin": 480, "maxMin": 720}, {"phase": "preheat", "minMin": 45}, {"phase": "bake", "minMin": 45, "tempC": 250}]}\n' +
-        'Regole: tutte le quantità in grammi (converti tazze, once, millilitri di acqua e latte), tempi in minuti, temperature in Celsius. "type" è uno tra flour, water, starter, salt, other. "phase" è uno tra autolyse, mix, fold, bulk, preshape, shape, chill (riposo in frigo), proof (lievitazione finale a temperatura ambiente), preheat, bake, cool. In "bulk" metti il tempo totale della fermentazione di massa (le pieghe avvengono al suo interno). Ometti i passi che la ricetta non ha. Ignora come si crea o si rinfresca il lievito: conta solo la quantità di lievito attivo usata nell\'impasto. Se la ricetta usa percentuali del panettiere, calcola i grammi per 900 g di impasto totale.'
+        'Regole: tutte le quantità in grammi (converti tazze, once, millilitri di acqua e latte), tempi in minuti, temperature in Celsius. "type" è uno tra flour, water, starter, yeast (lievito di birra), salt, other. "phase" è uno tra autolyse, mix, fold, bulk, preshape, shape, chill (riposo in frigo), proof (lievitazione finale a temperatura ambiente), preheat, bake, cool. In "bulk" metti il tempo totale della fermentazione di massa (le pieghe avvengono al suo interno). Ometti i passi che la ricetta non ha. Ignora come si crea o si rinfresca il lievito: conta solo la quantità di lievito attivo usata nell\'impasto. Se la ricetta usa percentuali del panettiere, calcola i grammi per 900 g di impasto totale.'
   };
   function promptFor(lang) { return PROMPT[lang] || PROMPT.en; }
 

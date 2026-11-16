@@ -224,6 +224,7 @@
   function renderChoices() {
     renderGroup('#presets', '#presetDesc', Recipe.PRESETS, S.preset, function (id) { S.preset = id; S.done = {}; save(); build(); });
     $('#recipeName').textContent = currentRecipe() ? currentRecipe().name : '';
+    $('#presets').closest('fieldset').hidden = !(BUILT && BUILT.starterG > 0);
   }
 
   // loaf size pills: the recipe as written, a few sizes and a free number
@@ -681,7 +682,7 @@
       var nm = document.createElement('input'); nm.type = 'text'; nm.value = it.name; nm.className = 'rname'; nm.addEventListener('input', function () { it.name = nm.value; });
       var g = numInput(it.g, function (v) { it.g = v; });
       var ty = document.createElement('select');
-      ['flour', 'water', 'starter', 'salt', 'other'].forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = t('ty.' + k); if (k === it.type) o.selected = true; ty.appendChild(o); });
+      ['flour', 'water', 'starter', 'yeast', 'salt', 'other'].forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = t('ty.' + k); if (k === it.type) o.selected = true; ty.appendChild(o); });
       ty.addEventListener('change', function () { it.type = ty.value; });
       var del = txt('button', 'x', '×'); del.type = 'button'; del.setAttribute('aria-label', 'Remove');
       del.addEventListener('click', function () { RV.ing.splice(i, 1); renderReview(); });
@@ -728,7 +729,7 @@
     var sum = function (type) { return ing.reduce(function (a, i) { return a + (i.type === type ? i.g : 0); }, 0); };
     var errors = [];
     if (!(sum('flour') > 0)) errors.push({ code: 'need-flour' });
-    if (!(sum('starter') > 0)) errors.push({ code: 'need-starter' });
+    if (!(sum('starter') > 0) && !(sum('yeast') > 0)) errors.push({ code: 'need-starter' });
     if (errors.length) { showMsgs($('#rvMsg'), errors, RV.warnings); return; }
     var steps = [], bake = { tempC: null, minutes: null };
     RV.rows.forEach(function (row) {

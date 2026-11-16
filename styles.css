@@ -446,3 +446,10 @@ body[data-view="import"] .quote, body[data-view="review"] .quote, body[data-view
   .list li { padding: 5px 10px; }
 }
 #view-review .foot { position: sticky; bottom: 0; margin: 10px -4px 0; padding: 10px 4px 12px; flex-direction: row; justify-content: center; gap: 14px; background: var(--panel-solid, var(--panel)); border-radius: 0 0 20px 20px; }
+@media (max-width: 600px) {
+  #rvIng .rrow { gap: 5px; }
+  #rvIng .rrow select { width: 5.4rem; padding: 8px 4px; }
+  #rvIng .rrow input[type="number"] { width: 3.9rem; padding: 8px 6px; }
+  #rvIng .x { padding: 6px 2px; }
+}
+.rows { grid-template-columns: minmax(0, 1fr); }
