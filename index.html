@@ -155,7 +155,11 @@
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
+      var hadController = !!navigator.serviceWorker.controller, reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (hadController && !reloaded) { reloaded = true; location.reload(); }
+      });
+      navigator.serviceWorker.register('sw.js').then(function (reg) { reg.update(); }).catch(function () {});
     }
   </script>
 </body>
