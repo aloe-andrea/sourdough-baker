@@ -764,14 +764,14 @@
     });
     var rec = { id: RV.id || 'r' + Date.now().toString(36), name: (RV.name || '').trim() || t('recipe.untitled'), ingredients: ing, steps: steps, bake: bake, savedAt: Date.now() };
     S.recipes = [rec].concat(S.recipes.filter(function (r) { return r.id !== rec.id; })).slice(0, 5);
-    S.recipeId = rec.id; S.loafG = null; S.done = {};
+    S.recipeId = rec.id; S.loafG = null; S.done = {}; S.useStarter = true;
     save(); build(); renderChoices(); renderSizes(); recompute();
     RV = null;
     show('home');
   }
 
   function chooseRecipe(id) {
-    S.recipeId = id; S.loafG = null; S.done = {};
+    S.recipeId = id; S.loafG = null; S.done = {}; S.useStarter = true;
     save(); build(); renderChoices(); renderSizes(); recompute();
     show('home');
   }
@@ -801,6 +801,7 @@
       var toggle = function (label) {
         var btn = txt('button', 'link', label); btn.type = 'button';
         btn.addEventListener('click', function () {
+          if (Object.keys(S.done).length && !confirm(t('plan.resetConfirm'))) return;
           S.useStarter = !S.useStarter; S.done = {}; save(); build(); renderChoices(); renderSizes(); recompute(); renderIngredients();
         });
         return btn;

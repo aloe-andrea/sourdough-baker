@@ -130,6 +130,20 @@ test('too little flour: unchanged', () => {
   assert.strictEqual(Convert.yeastToStarter(r).reason, 'too-little-flour');
 });
 
+test('a slow yeast recipe (written bulk of 6 h or more) is not stretched further', () => {
+  const r = lean({ steps: [{ phase: 'bulk', minMin: 720, maxMin: 1080 }, { phase: 'proof', minMin: 90, maxMin: 120 }, { phase: 'bake', minMin: 35, maxMin: 35 }] });
+  const res = Convert.yeastToStarter(r);
+  assert.deepStrictEqual([step(res.recipe, 'bulk').minMin, step(res.recipe, 'bulk').maxMin], [720, 1080]);
+  assert.deepStrictEqual([step(res.recipe, 'proof').minMin, step(res.recipe, 'proof').maxMin], [270, 360]);
+});
+
+test('converted times never exceed 12 h for the bulk and 6 h for the proof', () => {
+  const r = lean({ steps: [{ phase: 'bulk', minMin: 300, maxMin: 340 }, { phase: 'proof', minMin: 150, maxMin: 200 }, { phase: 'bake', minMin: 35, maxMin: 35 }] });
+  const res = Convert.yeastToStarter(r);
+  assert.deepStrictEqual([step(res.recipe, 'bulk').minMin, step(res.recipe, 'bulk').maxMin], [720, 720]);
+  assert.deepStrictEqual([step(res.recipe, 'proof').minMin, step(res.recipe, 'proof').maxMin], [360, 360]);
+});
+
 test('input is not mutated', () => {
   const r = lean();
   const snap = JSON.parse(JSON.stringify(r));

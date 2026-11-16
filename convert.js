@@ -12,6 +12,8 @@
   var FACTOR_ENRICHED = 4;
   var ENRICHMENT = /burro|butter|olio|oil|strutto|margarina|uov|tuorl|egg|yolk|zucchero|sugar|miele|honey/i;
   var SCALED_PHASES = ['bulk', 'proof'];
+  var CAP_MIN = { bulk: 720, proof: 360 };   // converted times never go past 12 h (bulk) and 6 h (proof)
+  var SLOW_BULK_MIN = 360;                   // a written bulk this long is already a slow yeast recipe: leave it
 
   function sum(ing, type) { return ing.reduce(function (a, i) { return a + (i.type === type && i.g > 0 ? i.g : 0); }, 0); }
 
@@ -42,8 +44,10 @@
     out.ingredients.push({ name: starterName || 'Starter', g: starterG, type: 'starter' });
     (out.steps || []).forEach(function (s) {
       if (SCALED_PHASES.indexOf(s.phase) < 0 || !(s.minMin > 0)) return;
-      s.minMin = Math.round(s.minMin * factor);
-      if (s.maxMin > 0) s.maxMin = Math.round(s.maxMin * factor);
+      if (s.phase === 'bulk' && s.minMin >= SLOW_BULK_MIN) return;
+      var cap = CAP_MIN[s.phase];
+      s.minMin = Math.min(Math.round(s.minMin * factor), cap);
+      if (s.maxMin > 0) s.maxMin = Math.min(Math.round(s.maxMin * factor), cap);
     });
     return { recipe: out, converted: true, info: { starterG: starterG, yeastG: yeastG, factor: factor, enriched: enriched }, reason: null };
   }
