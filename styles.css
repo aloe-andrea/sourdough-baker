@@ -338,3 +338,47 @@ body.peek .bottom::before { opacity: .6; }
 @media (max-width: 600px) and (orientation: portrait) {
   #view-home, #view-intro, #view-now, #view-plan { padding: 0 !important; }
 }
+
+/* COMPUTERS: sizes follow the window height as well as its width, so the setup and the plan fit
+   without scrolling at 100% zoom on a laptop (including Windows display scaling) */
+.plan-bar { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: clamp(10px, 2vh, 18px); }
+.plan-bar .tabs { margin: 0; }
+.plan-bar .foot { margin: 0; flex-direction: row; gap: 6px; }
+#icsHelp { margin: 10px 0 0; max-width: none; text-align: left; }
+@media (min-width: 601px) {
+  :root {
+    --fs-display: clamp(1.7rem, min(1.2rem + 1.8vw, 6vh), 3.6rem);
+    --fs-body: clamp(.9rem, min(.9rem + .25vw, 2.5vh), 1.15rem);
+    --fs-small: clamp(.82rem, min(.85rem + .12vw, 2.2vh), .98rem);
+    --fs-num: clamp(2.8rem, min(1rem + 6vw, 13vh), 6.6rem);
+    --gap: clamp(10px, 2.2vh, 20px);
+  }
+  .stack { padding: clamp(16px, 3.2vh, 30px) clamp(20px, 2.4vw, 28px); }
+  .seg span { padding: clamp(6px, 1.1vh, 9px) 14px; }
+  .quick button { padding: clamp(5px, .9vh, 7px) 14px; }
+  input[type="datetime-local"] { padding-bottom: clamp(4px, 1vh, 10px); }
+  .cta { padding: clamp(11px, 1.8vh, 15px) 28px; }
+  form > .cta { padding: clamp(12px, 2vh, 17px); }
+  .link { padding: 4px 0; margin-bottom: clamp(8px, 1.8vh, 20px); }
+  .step-name { margin-top: 2px; }
+  .digits { margin: clamp(8px, 2vh, 18px) 0; }
+  .row { margin-top: clamp(14px, 3vh, 24px); }
+  .plan-wrap { max-width: min(94vw, 1180px); padding: clamp(14px, 2.6vh, 22px) clamp(16px, 2vw, 22px) clamp(10px, 1.6vh, 14px); }
+  .plan-wrap h2 { font-size: calc(var(--fs-display) * .72); }
+  .timeline { grid-template-columns: repeat(auto-fill, minmax(clamp(260px, 26vw, 340px), 1fr)); gap: clamp(6px, 1.2vh, 10px); margin-top: clamp(8px, 1.6vh, 14px); }
+  .step > button { padding: clamp(8px, 1.5vh, 14px) 14px; }
+  .notice { margin-top: clamp(8px, 1.6vh, 14px); }
+}
+@media (min-width: 601px) and (max-height: 700px) { .optdesc { display: none; } }
+@media (max-width: 600px) and (orientation: portrait) {
+  .plan-bar { display: contents; }
+  .plan-bar .foot { order: 9; flex-direction: column; gap: 4px; margin: 20px 0 6px; }
+  #icsHelp { order: 8; text-align: center; margin-top: 8px; }
+  .plan-bar .tabs { margin: 18px 0 0; }
+}
+@media (min-width: 601px) and (max-height: 640px) {
+  #planSub { display: none; }
+  .night { padding: 2px 4px; }
+  .plan-wrap .back { padding-top: 6px; padding-bottom: 6px; min-height: 0; }
+  .tabs button { padding: 6px 14px; }
+}
