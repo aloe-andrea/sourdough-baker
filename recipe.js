@@ -1,7 +1,7 @@
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.Recipe = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./calc.js'), require('./recipeimport.js'));
+  else root.Recipe = factory(root.Calc, root.RecipeImport);
+})(typeof self !== 'undefined' ? self : this, function (Calc, RecipeImport) {
   'use strict';
 
   // Each step is a moment when you act. Its duration is the time until the next step
@@ -12,34 +12,34 @@
 
   var STEP = {
     rinfresco11: {
-      id: 'rinfresco-1-1', tipo: 'attesa', durata: d(360, 420, 480), sensibileTemperatura: true, foto: 'starter',
+      id: 'rinfresco-1-1', ratio: 1, tipo: 'attesa', durata: d(360, 420, 480), sensibileTemperatura: true, foto: 'starter',
       nome: tx('Feed 1:1', 'Rinfresco 1:1'),
       istruzioni: tx('Take the starter out of the fridge and feed it 1:1. Cover loosely and leave at room temperature.',
                      'Togli il lievito madre dal frigo e rinfrescalo nel rapporto 1:1. Copri senza chiudere ermetico e lascia a temperatura ambiente.'),
       segnale: tx('Doubled, domed top with bubbles.', 'Raddoppiato, superficie bombata con bolle.')
     },
     rinfresco12: {
-      id: 'rinfresco-1-2', tipo: 'attesa', durata: d(180, 210, 240), sensibileTemperatura: true, foto: 'starter',
+      id: 'rinfresco-1-2', ratio: 2, tipo: 'attesa', durata: d(180, 210, 240), sensibileTemperatura: true, foto: 'starter',
       nome: tx('Feed 1:2', 'Rinfresco 1:2'),
       istruzioni: tx('Feed at a 1:2 ratio. Mark the level on the jar with a rubber band.',
                      'Rinfresca nel rapporto 1:2. Segna il livello sul vasetto con un elastico.'),
       segnale: tx('Doubled, bubbles on top and along the glass.', 'Raddoppiato, bolle in superficie e al bordo del vasetto.')
     },
     rinfresco12a: {
-      id: 'rinfresco-1-2-a', tipo: 'attesa', durata: d(360, 420, 480), sensibileTemperatura: true, foto: 'starter',
+      id: 'rinfresco-1-2-a', ratio: 2, tipo: 'attesa', durata: d(360, 420, 480), sensibileTemperatura: true, foto: 'starter',
       nome: tx('Feed 1:2', 'Rinfresco 1:2'),
       istruzioni: tx('Take the starter out of the fridge and feed it 1:2. Cover loosely and leave at room temperature.',
                      'Togli il lievito madre dal frigo e rinfrescalo nel rapporto 1:2. Copri senza chiudere ermetico e lascia a temperatura ambiente.'),
       segnale: tx('Doubled, domed top with bubbles.', 'Raddoppiato, superficie bombata con bolle.')
     },
     rinfresco12b: {
-      id: 'rinfresco-1-2-bis', tipo: 'attesa', durata: d(180, 210, 240), sensibileTemperatura: true, foto: 'starter',
+      id: 'rinfresco-1-2-bis', ratio: 2, tipo: 'attesa', durata: d(180, 210, 240), sensibileTemperatura: true, foto: 'starter',
       nome: tx('Second feed 1:2', 'Secondo rinfresco 1:2'),
       istruzioni: tx('Feed again at 1:2 once the starter has doubled.', 'Rinfresca ancora nel rapporto 1:2 quando il lievito ha raddoppiato.'),
       segnale: tx('Doubled, smells of yogurt, not sharply sour.', 'Raddoppiato, profumo di yogurt, non acido pungente.')
     },
     rinfrescoUnico: {
-      id: 'rinfresco-unico', tipo: 'attesa', durata: d(360, 480, 600), sensibileTemperatura: true, foto: 'starter',
+      id: 'rinfresco-unico', ratio: 2, tipo: 'attesa', durata: d(360, 480, 600), sensibileTemperatura: true, foto: 'starter',
       nome: tx('Feed 1:2 from the fridge', 'Rinfresco 1:2 dal frigo'),
       istruzioni: tx('Take the starter out of the fridge and feed it 1:2. Cover and leave at room temperature.',
                      'Togli il lievito dal frigo e rinfrescalo nel rapporto 1:2. Copri e lascia a temperatura ambiente.'),
@@ -209,5 +209,88 @@
     return preset.rinfreschi.concat(method.passi).map(function (k) { return clone(STEP[k]); });
   }
 
-  return { PRESETS: PRESETS, METHODS: METHODS, buildRecipe: buildRecipe };
+
+  // ---------- steps from an imported recipe ----------
+  function T(en, it) { return tx(en, it); }
+  function pick(o) { return { nome: o.nome, istruzioni: o.istruzioni, segnale: o.segnale }; }
+
+  function phaseStep(spec, ctx) {
+    var ph = spec.phase, st;
+    switch (ph) {
+      case 'autolyse': st = Object.assign(pick(STEP.autolisi), { tipo: 'attesa', sens: true, foto: 'impasto' }); break;
+      case 'mix':
+        st = { nome: T('Mix the dough', 'Impasta'), tipo: ctx.folds ? 'attivo' : 'attesa', sens: !ctx.folds, foto: 'impasto',
+               istruzioni: T('Mix the dough as the recipe says, then cover it.', 'Impasta come indica la ricetta, poi copri.'),
+               segnale: ctx.folds ? STEP.impasto.segnale : STEP.massa.segnale };
+        break;
+      case 'fold':
+        st = { nome: T('Fold ' + spec.index, 'Piega ' + spec.index), tipo: 'attivo', sens: true, foto: 'pieghe',
+               istruzioni: STEP.piega1.istruzioni, segnale: spec.index < ctx.folds ? STEP.piega2.segnale : STEP.massa.segnale };
+        break;
+      case 'preshape': st = Object.assign(pick(STEP.preforma), { tipo: 'attivo', sens: false, foto: 'forma' }); break;
+      case 'shape':
+        st = ctx.chill ? Object.assign(pick(STEP.formatura), { tipo: 'attesa', sens: false, foto: 'frigo' })
+                       : { nome: T('Shape', 'Formatura'), tipo: 'attesa', sens: true, foto: 'forma',
+                           istruzioni: T('Shape the loaf and place it in a floured basket or tin. Cover it.', 'Dai la forma al pane e mettilo in un cestino infarinato o in uno stampo. Copri.'),
+                           segnale: T('Puffy, and a gentle press leaves a dent that fades slowly.', 'Gonfio, e una leggera pressione lascia un’impronta che torna piano.') };
+        break;
+      case 'proof':
+        st = { nome: T('Final proof', 'Lievitazione finale'), tipo: 'attesa', sens: true, foto: 'forma',
+               istruzioni: ctx.chill ? STEP.provaBrioche.istruzioni : T('Leave it covered at room temperature until puffy.', 'Lascia coperto a temperatura ambiente finché è gonfio.'),
+               segnale: STEP.provaBrioche.segnale };
+        break;
+      case 'preheat':
+        st = { nome: T('Heat the oven', 'Accendi il forno'), tipo: 'attesa', sens: false, foto: 'forno',
+               istruzioni: spec.tempC ? T('Heat the oven to ' + spec.tempC + ' °C.', 'Accendi il forno a ' + spec.tempC + ' °C.') : STEP.forno.istruzioni,
+               segnale: STEP.forno.segnale };
+        break;
+      case 'bake':
+        st = { nome: T('Bake', 'Cottura'), tipo: 'attesa', sens: false, foto: 'cottura',
+               istruzioni: spec.tempC ? T('Bake at ' + spec.tempC + ' °C as the recipe says.', 'Cuoci a ' + spec.tempC + ' °C come indica la ricetta.') : STEP.cottura.istruzioni,
+               segnale: STEP.cottura.segnale };
+        break;
+      default: st = Object.assign(pick(STEP.raffreddamento), { tipo: 'attesa', sens: false, foto: 'pane' });
+    }
+    return st;
+  }
+
+  // flour and water go in the autolyse when there is one; everything else goes in the mix
+  function gramsFor(phase, ing, hasAutolyse) {
+    var inA = function (i) { return i.type === 'flour' || i.type === 'water'; };
+    if (phase === 'autolyse') return ing.filter(inA);
+    if (phase === 'mix') return hasAutolyse ? ing.filter(function (i) { return !inA(i); }) : ing;
+    return [];
+  }
+
+  // opts: { loafG }  ->  { steps, ingredients (scaled), feeds, starterG, scale }
+  function fromImported(recipe, presetId, opts) {
+    opts = opts || {};
+    var preset = PRESETS[presetId] || PRESETS['uno11-uno12'];
+    var total = Calc.totalWeight(recipe.ingredients);
+    var loaf = opts.loafG > 0 ? opts.loafG : total;
+    var ing = Calc.scaleTo(recipe.ingredients, loaf);
+    var starterG = ing.reduce(function (a, i) { return a + (i.type === 'starter' ? i.g : 0); }, 0);
+
+    var feedSteps = preset.rinfreschi.map(function (k) { return clone(STEP[k]); });
+    var fed = Calc.feeds(starterG, feedSteps.map(function (f) { return f.ratio; }));
+    feedSteps.forEach(function (f, i) {
+      if (fed[i]) f.grammi = [{ key: 'starter', g: fed[i].starter }, { key: 'flour', g: fed[i].flour }, { key: 'water', g: fed[i].water }];
+    });
+
+    var specs = RecipeImport.assemble(recipe);
+    var ctx = { folds: specs.filter(function (x) { return x.phase === 'fold'; }).length, chill: specs.some(function (x) { return x.phase === 'shape'; }) && recipe.steps.some(function (x) { return x.phase === 'chill'; }) };
+    var hasAutolyse = specs.some(function (x) { return x.phase === 'autolyse'; });
+    var steps = specs.map(function (sp, i) {
+      var st = phaseStep(sp, ctx);
+      var g = gramsFor(sp.phase, ing, hasAutolyse).filter(function (x) { return x.g > 0; });
+      return {
+        id: 'r-' + sp.phase + (sp.index ? '-' + sp.index : ''), tipo: st.tipo, durata: { min: sp.min, target: sp.target, max: sp.max },
+        sensibileTemperatura: !!st.sens, foto: st.foto, nome: st.nome, istruzioni: st.istruzioni, segnale: st.segnale,
+        stimato: !!sp.est, grammi: g.map(function (x) { return { name: x.name, type: x.type, g: x.g }; })
+      };
+    });
+    return { steps: feedSteps.concat(steps), ingredients: ing, feeds: fed, starterG: starterG, scale: loaf / total, loafG: loaf };
+  }
+
+  return { PRESETS: PRESETS, METHODS: METHODS, buildRecipe: buildRecipe, fromImported: fromImported };
 });

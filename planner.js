@@ -179,7 +179,7 @@
     function doneStep(s, i) {
       var nextStart = null;
       for (var j = i + 1; j < n; j++) if (done[steps[j].id] != null) { nextStart = done[steps[j].id]; break; }
-      return { id: s.id, nome: s.nome, tipo: s.tipo, foto: s.foto, fatto: true,
+      return { id: s.id, nome: s.nome, tipo: s.tipo, foto: s.foto, grammi: s.grammi, fatto: true,
                inizio: done[s.id] != null ? done[s.id] : null, fine: nextStart };
     }
 
@@ -223,7 +223,7 @@
         var dev = tgt ? (dur - tgt) / tgt : 0;
         out.push({
           id: s.id, nome: s.nome, tipo: s.tipo, foto: s.foto,
-          istruzioni: s.istruzioni, segnale: s.segnale,
+          istruzioni: s.istruzioni, segnale: s.segnale, grammi: s.grammi, stimato: s.stimato,
           fatto: false, inizio: starts[i], fine: fine,
           dalle: sl[i - lo].dalle, entro: sl[i - lo].entro,
           durataMin: dur, durataTipicaMin: tgt,

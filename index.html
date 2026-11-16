@@ -68,11 +68,15 @@
           <p class="optdesc" id="presetDesc"></p>
         </fieldset>
 
-        <fieldset class="field">
-          <legend class="label" data-i18n="home.dough"></legend>
-          <div id="methods" class="seg"></div>
-          <p class="optdesc" id="methodDesc"></p>
-        </fieldset>
+        <div class="field">
+          <span class="label" data-i18n="home.size"></span>
+          <div id="sizes" class="seg"></div>
+        </div>
+
+        <div class="recipe-row">
+          <span><span class="label" data-i18n="home.recipe"></span> <b id="recipeName"></b></span>
+          <button type="button" id="changeRecipe" class="link" data-i18n="home.change"></button>
+        </div>
 
         <button type="button" id="detailsBtn" class="link" aria-expanded="false"><span data-i18n="home.details"></span> <i aria-hidden="true">+</i></button>
         <div id="details" class="details" hidden>
@@ -80,6 +84,10 @@
             <span class="label"><span data-i18n="home.temp"></span> <b id="tempOut">22</b> °C</span>
             <input type="range" id="temp" min="16" max="30" step="1" value="22">
             <span class="hint" data-i18n="home.tempHint"></span>
+          </label>
+          <label class="field">
+            <span class="label"><span data-i18n="home.ddt"></span> <b id="ddtOut">25</b> °C</span>
+            <input type="range" id="ddt" min="22" max="28" step="1" value="25">
           </label>
           <div class="field">
             <label class="switch">
@@ -99,6 +107,76 @@
     </div>
   </main>
 
+  <!-- IMPORT -->
+  <main id="view-import" class="screen" hidden>
+    <div class="stack">
+      <h1 data-i18n="recipe.title"></h1>
+      <div class="seg" role="radiogroup">
+        <label><input type="radio" name="imode" value="text" checked><span data-i18n="recipe.tabText"></span></label>
+        <label><input type="radio" name="imode" value="ai"><span data-i18n="recipe.tabAi"></span></label>
+      </div>
+      <div id="importText" class="ipane">
+        <textarea id="recipeText" rows="9" data-i18n-ph="recipe.placeholder"></textarea>
+        <div class="irow"><button type="button" class="cta" id="readText" data-i18n="recipe.read"></button><button type="button" class="link" id="useSample" data-i18n="recipe.example"></button></div>
+      </div>
+      <div id="importAi" class="ipane" hidden>
+        <p class="hint" data-i18n="recipe.aiHelp"></p>
+        <button type="button" class="cta small" id="copyPrompt" data-i18n="recipe.copy"></button>
+        <textarea id="recipeJson" rows="6" data-i18n-ph="recipe.answerPlaceholder"></textarea>
+        <div class="irow"><button type="button" class="cta" id="readJson" data-i18n="recipe.readAnswer"></button></div>
+      </div>
+      <div id="importMsg" class="msgs"></div>
+      <p class="hint" data-i18n="recipe.privacy"></p>
+      <button type="button" class="ghost" id="importCancel" data-i18n="recipe.cancel" hidden></button>
+    </div>
+  </main>
+
+  <!-- REVIEW -->
+  <main id="view-review" class="screen scroll" hidden>
+    <div class="plan-wrap">
+      <h2 data-i18n="review.title"></h2>
+      <div class="rv-cols">
+        <div class="rv-left">
+          <label class="field"><span class="label" data-i18n="review.name"></span><input type="text" id="rvName"></label>
+          <div class="label" data-i18n="review.ingredients"></div>
+          <div id="rvIng" class="rows"></div>
+          <button type="button" class="link" id="rvAdd" data-i18n="review.addIng"></button>
+        </div>
+        <div class="rv-right">
+          <div class="label" data-i18n="review.steps"></div>
+          <div id="rvSteps" class="rows"></div>
+          <div id="rvMsg" class="msgs"></div>
+        </div>
+      </div>
+      <div class="foot"><button type="button" class="cta" id="rvSave" data-i18n="review.save"></button><button type="button" class="ghost" id="rvBack" data-i18n="review.back"></button></div>
+    </div>
+  </main>
+
+  <!-- SAME RECIPE? -->
+  <main id="view-again" class="screen" hidden>
+    <div class="stack">
+      <h1 id="againTitle"></h1>
+      <div id="againMain">
+        <button type="button" class="cta" id="againSame" data-i18n="again.same"></button>
+        <button type="button" class="ghost" id="againOther" data-i18n="again.other"></button>
+      </div>
+      <div id="againList" hidden>
+        <div class="label" data-i18n="again.pick"></div>
+        <div id="againRecipes" class="seg"></div>
+        <button type="button" class="link" id="againNew" data-i18n="again.new"></button>
+      </div>
+    </div>
+  </main>
+
+  <!-- INGREDIENTS -->
+  <main id="view-ingredients" class="screen scroll" hidden>
+    <div class="plan-wrap">
+      <button type="button" class="ghost back" id="ingBack" data-i18n="plan.back"></button>
+      <h2 id="ingTitle"></h2>
+      <div id="ingBody"></div>
+    </div>
+  </main>
+
   <!-- NOW -->
   <main id="view-now" class="screen" hidden>
     <div class="stack center">
@@ -109,6 +187,7 @@
         <span class="when-time" id="whenTime"></span>
       </div>
       <p class="sub" id="nowSub"></p>
+      <p class="need" id="nowNeed" hidden></p>
       <div class="track"><i id="trackFill"></i></div>
       <div class="howto" id="nowHow" hidden>
         <p id="nowInstr"></p>
@@ -117,6 +196,7 @@
       <div class="row">
         <button type="button" class="cta" id="nowDone" data-i18n="now.done" hidden></button>
         <button type="button" class="ghost" id="toPlan" data-i18n="now.plan"></button>
+        <button type="button" class="ghost" id="toIng" data-i18n="now.ingredients"></button>
         <button type="button" class="ghost" id="toHome" data-i18n="now.edit"></button>
       </div>
     </div>
@@ -133,6 +213,7 @@
         <div id="dayTabs" class="tabs" role="tablist"></div>
         <div class="foot">
           <button type="button" class="cta small" id="icsBtn" data-i18n="plan.calendar"></button>
+          <button type="button" class="ghost" id="toIng2" data-i18n="now.ingredients"></button>
           <button type="button" class="ghost" id="reset" data-i18n="plan.reset"></button>
         </div>
       </div>
@@ -148,6 +229,8 @@
   <div id="toast" class="toast" role="status" hidden></div>
 
   <script src="i18n.js"></script>
+  <script src="calc.js"></script>
+  <script src="recipeimport.js"></script>
   <script src="ics.js"></script>
   <script src="recipe.js"></script>
   <script src="planner.js"></script>
