@@ -31,7 +31,8 @@ h1 { font-family: "Bricolage", "DM Sans", sans-serif; font-weight: 800; font-siz
 .ib { width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--ibbg); color: var(--topink); display: flex; align-items: center; justify-content: center; padding: 0; }
 .ib svg { width: 22px; height: 22px; }
 .ib[hidden] { display: flex !important; visibility: hidden; }
-.ttl { text-align: center; font-weight: 600; font-size: 16px; line-height: 1.1; }
+.ttl { flex: 1; min-width: 0; padding: 0 10px; text-align: center; font-weight: 600; font-size: 16px; line-height: 1.1; }
+.ttl #topTitle { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dots { display: flex; gap: 5px; justify-content: center; margin-top: 5px; }
 .dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--dot); }
 .dots i.on { width: 18px; background: var(--topink); }

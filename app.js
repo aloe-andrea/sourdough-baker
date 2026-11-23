@@ -467,7 +467,9 @@
       S.target = new Date(v).getTime(); S.nowMode = false;
     }
     S.done = {};
-    CF = { ideal: compute({}, false), avoid: null, mode: 'ideal' };
+    var first = currentSteps()[0], startDone = {};
+    if (S.nowMode && first) startDone[first.id] = Date.now();   // starting right now: the first step is under way
+    CF = { done: startDone, ideal: compute(startDone, false), avoid: null, mode: 'ideal' };
     save(); show('confirm');
   }
 
@@ -520,7 +522,7 @@
     var sm = Flow.summary(plan, { quiet: S.quiet });
     var todo = plan.steps.filter(function (s) { return !s.fatto; }).length;
     $('#cfReady').textContent = dayBrief(plan.target) + ', ' + hhmm(plan.target);
-    $('#cfStarts').textContent = t('cf.starts', { day: dayMid(sm.firstAt), t: hhmm(sm.firstAt), n: todo });
+    $('#cfStarts').textContent = S.nowMode ? t('cf.startsNow', { n: plan.steps.length }) : t('cf.starts', { day: dayMid(sm.firstAt), t: hhmm(sm.firstAt), n: todo });
     var night = S.quietOn ? sm.nightSteps : [];
     plan.avvisi.forEach(function (a) {
       if (a.codice === 'target-spostato') notes.appendChild(txt('p', 'notice', t('notice.moved', { day: dayMid(plan.target), t: hhmm(plan.target), d: dur(Math.abs(a.spostamentoMin)), dir: t(a.spostamentoMin > 0 ? 'notice.later' : 'notice.earlier') })));
@@ -540,7 +542,7 @@
       card.appendChild(pills); notes.appendChild(card);
       button('', t('cf.go'), startPlan);
       button('sec', t('cf.avoid'), function () {
-        var av = compute({}, true);
+        var av = compute(CF.done || {}, true);
         if (!av.ok) { toast(t('cf.noAvoid'), 6000); return; }
         CF.avoid = av; CF.mode = 'avoid'; renderConfirm();
       });
@@ -553,8 +555,7 @@
     if (!CF) return;
     var plan = CF.mode === 'avoid' ? CF.avoid : CF.ideal;
     if (!plan.ok) return;
-    S.avoidNight = CF.mode === 'avoid'; S.target = plan.target; S.done = {};
-    if (S.nowMode) { var st = currentSteps()[0]; if (st) S.done[st.id] = Date.now(); }   // starting right now: the first step is under way
+    S.avoidNight = CF.mode === 'avoid'; S.target = plan.target; S.done = Object.assign({}, CF.done || {});
     S.started = true; save(); recompute();
     if (!PLAN.ok) { S.started = false; save(); toast(t('toast.impossible')); return; }
     CF = null;
