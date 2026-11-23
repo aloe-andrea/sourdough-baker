@@ -9,8 +9,11 @@ A personal web app that plans a sourdough bake backwards from the time you want 
 - **Your recipe.** Load it once: paste the text, or use your own AI (Claude, ChatGPT) to read a link, screenshot or photo and paste its short answer. The app checks it with you, then works out the grams for the loaf size you want, the feeds backwards from the starter the dough needs, and the water temperature. Next time it asks whether to continue with the same recipe.
 - **Live re-plan.** "Done now" on a step moves the following steps; if the delay makes the plan impossible it says so instead of inventing one.
 - **Calendar.** Exports every step with alarms (10 minutes before and on time) as an `.ics` file.
-- **English and Italian**, switchable at the top right.
-- **Full-page photos** with panels that take their colours from the picture.
+- **Four steps.** Recipe, When, Confirm, Cook. A running plan opens straight on the current step, with Now, Plan and Ingredients as tabs.
+- **Night hours.** The plan is made first; if some steps fall between 23:00 and 07:00 the Confirm screen says so, lists them, and lets you start anyway or replan without night steps.
+- **Starter or yeast, both ways.** A yeast recipe can run on your starter and a starter recipe on fresh yeast, with a switch on the recipe card.
+- **English and Italian**, switchable from the menu.
+- **Three looks.** Mustard to prepare, burgundy to cook, cream to read and adjust, with a photo card on each main screen.
 - **Offline.** A service worker caches the app and all photos (needs `https://` or `localhost`).
 
 ## Run it
@@ -30,6 +33,10 @@ node tests/planner.test.js
 node tests/calc.test.js
 node tests/import.test.js
 node tests/recipe.test.js
+node tests/convert.test.js
+node tests/flow.test.js
+node tests/i18n.test.js
+node tests/relay.test.mjs
 ```
 
 The planner is plain JavaScript with no dependencies. It finds plans with dynamic programming on a 15 minute grid, so the "earliest" answer is the real earliest.
@@ -43,9 +50,11 @@ The planner is plain JavaScript with no dependencies. It finds plans with dynami
 | `recipeimport.js` | Reads pasted text or the AI's JSON, assembles the steps |
 | `calc.js` | Grams, scaling, feeds worked backwards, water temperature |
 | `ics.js` | Calendar export |
-| `i18n.js`, `quotes.js` | Texts and quotes |
+| `convert.js` | Yeast to starter and starter to yeast conversion |
+| `flow.js` | Which screen opens, old saved screens, the night check |
+| `i18n.js` | Texts, English and Italian |
 | `app.js`, `index.html`, `styles.css` | Interface |
-| `images.js`, `assets/img/` | Photos with the colours of each panel |
+| `assets/img/`, `assets/fonts/` | Photos and fonts (Bricolage Grotesque, DM Sans, both open licence) |
 | `sw.js`, `manifest.webmanifest` | Offline and install |
 | `reference/` | Original images the app photos were cut from |
 

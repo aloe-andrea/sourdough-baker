@@ -3,227 +3,183 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#1c130d">
+  <meta name="theme-color" content="#F4C24B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Sourdough">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
   <title>Sourdough, planned backwards</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <div class="bg" id="bgA"></div>
-  <div class="bg" id="bgB"></div>
-  <div class="veil" id="veil"></div>
+<body class="t-y" data-view="import">
+  <header id="top" hidden>
+    <button type="button" class="ib" id="btnBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="ttl"><span id="topTitle"></span><div class="dots" id="dots" hidden><i></i><i></i><i></i></div></div>
+    <button type="button" class="ib" id="btnMenu" aria-label="Menu"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg></button>
+  </header>
 
-  <div class="lang" role="group" aria-label="Language">
-    <button type="button" data-lang="en" aria-pressed="true">EN</button>
-    <span aria-hidden="true">·</span>
-    <button type="button" data-lang="it" aria-pressed="false">IT</button>
-  </div>
-
-  <button type="button" class="help" id="helpBtn" aria-label="How it works" data-i18n-aria="home.how">?</button>
-  <button type="button" class="help peek" id="peekBtn" aria-label="Show the photo" data-i18n-aria="home.peek">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
-  </button>
-
-  <!-- INTRO -->
-  <main id="view-intro" class="screen" hidden>
-    <div class="stack">
-      <h1 data-i18n="intro.title"></h1>
-      <p class="lead" data-i18n="intro.lead"></p>
-      <ol class="points">
-        <li data-i18n="intro.p1"></li>
-        <li data-i18n="intro.p2"></li>
-        <li data-i18n="intro.p3"></li>
-      </ol>
-      <button type="button" class="cta" id="introGo" data-i18n="intro.go"></button>
-    </div>
-  </main>
-
-  <!-- SETUP -->
-  <main id="view-home" class="screen">
-    <div class="stack">
-      <h1 data-i18n="home.title"></h1>
-
-      <form id="form" autocomplete="off">
-        <div class="field">
-          <label class="label" for="target" data-i18n="home.ready"></label>
-          <input type="datetime-local" id="target" step="900" required>
-          <div class="quick"><span id="quickDates"></span><button type="button" id="startNowBtn" class="startnow-pill"><span data-i18n="home.startNow"></span> <i aria-hidden="true">→</i></button></div>
-        </div>
-
-        <div class="startnow">
-          <div id="startNowOut" class="startnow-out" hidden>
-            <p id="startNowText"></p>
-            <button type="button" id="startNowGo" class="cta small" data-i18n="home.startNowGo"></button>
-          </div>
-        </div>
-
-        <fieldset class="field">
-          <legend class="label" data-i18n="home.feeds"></legend>
-          <div id="presets" class="seg"></div>
-          <p class="optdesc" id="presetDesc"></p>
-        </fieldset>
-
-        <div class="field">
-          <span class="label" data-i18n="home.size"></span>
-          <div id="sizes" class="seg"></div>
-        </div>
-
-        <div class="recipe-row">
-          <span><span class="label" data-i18n="home.recipe"></span> <b id="recipeName"></b></span>
-          <button type="button" id="changeRecipe" class="link" data-i18n="home.change"></button>
-        </div>
-
-        <button type="button" id="detailsBtn" class="link" aria-expanded="false"><span data-i18n="home.details"></span> <i aria-hidden="true">+</i></button>
-        <div id="details" class="details" hidden>
-          <label class="field">
-            <span class="label"><span data-i18n="home.temp"></span> <b id="tempOut">22</b> °C</span>
-            <input type="range" id="temp" min="16" max="30" step="1" value="22">
-            <span class="hint" data-i18n="home.tempHint"></span>
-          </label>
-          <label class="field">
-            <span class="label"><span data-i18n="home.ddt"></span> <b id="ddtOut">25</b> °C</span>
-            <input type="range" id="ddt" min="22" max="28" step="1" value="25">
-          </label>
-          <div class="field">
-            <label class="switch">
-              <input type="checkbox" id="quietOn" checked>
-              <span class="trk" aria-hidden="true"></span>
-              <span data-i18n="home.quiet"></span>
-            </label>
-            <div id="quietRow" class="quiet-row">
-              <label><span data-i18n="home.from"></span> <input type="time" id="quietStart" value="23:00" step="900"></label>
-              <label><span data-i18n="home.to"></span> <input type="time" id="quietEnd" value="07:00" step="900"></label>
-            </div>
-          </div>
-        </div>
-
-        <button type="submit" class="cta" data-i18n="home.plan"></button>
-      </form>
-    </div>
-  </main>
-
-  <!-- IMPORT -->
+  <!-- 1. RECIPE: import -->
   <main id="view-import" class="screen" hidden>
-    <div class="stack">
-      <h1 data-i18n="recipe.title"></h1>
-      <p class="hint" data-i18n="recipe.help"></p>
-      <div id="importText" class="ipane">
-        <textarea id="recipeText" rows="7" data-i18n-ph="recipe.placeholder"></textarea>
-        <div class="irow"><button type="button" class="cta" id="readText" data-i18n="recipe.read"></button><button type="button" class="link" id="useSample" data-i18n="recipe.example"></button></div>
-      </div>
-      <button type="button" class="link" id="aiToggle" data-i18n="recipe.aiToggle"></button>
-      <div id="importAi" class="ipane" hidden>
-        <p class="hint" data-i18n="recipe.aiHelp"></p>
-        <button type="button" class="cta small" id="copyPrompt" data-i18n="recipe.copy"></button>
-        <textarea id="recipeJson" rows="6" data-i18n-ph="recipe.answerPlaceholder"></textarea>
-        <div class="irow"><button type="button" class="cta" id="readJson" data-i18n="recipe.readAnswer"></button></div>
-      </div>
-      <div id="importMsg" class="msgs"></div>
-      <p class="hint" data-i18n="recipe.privacy"></p>
-      <button type="button" class="ghost" id="importCancel" data-i18n="recipe.cancel" hidden></button>
+    <div class="photo" data-img="dough_00"></div>
+    <h1 data-i18n="imp.title"></h1>
+    <p class="sub" data-i18n="imp.sub"></p>
+    <div class="card pad"><textarea id="recipeText" rows="6" data-i18n-ph="recipe.placeholder"></textarea></div>
+    <div id="importMsg" class="msgs"></div>
+    <button type="button" class="textlink" id="aiLink" data-i18n="imp.aiLink"></button>
+    <div class="cta-wrap">
+      <button type="button" class="btn" id="readText" data-i18n="imp.read"></button>
+      <button type="button" class="btn txt" id="useSample" data-i18n="imp.example"></button>
     </div>
   </main>
 
-  <!-- REVIEW -->
-  <main id="view-review" class="screen scroll" hidden>
-    <div class="plan-wrap">
-      <h2 data-i18n="review.title"></h2>
-      <div class="rv-cols">
-        <div class="rv-left">
-          <label class="field"><span class="label" data-i18n="review.name"></span><input type="text" id="rvName"></label>
-          <div class="label" data-i18n="review.ingredients"></div>
-          <div id="rvIng" class="rows"></div>
-          <button type="button" class="link" id="rvAdd" data-i18n="review.addIng"></button>
-        </div>
-        <div class="rv-right">
-          <div class="label" data-i18n="review.steps"></div>
-          <div id="rvSteps" class="rows"></div>
-          <div id="rvMsg" class="msgs"></div>
-        </div>
-      </div>
-      <div class="foot"><button type="button" class="cta" id="rvSave" data-i18n="review.save"></button><button type="button" class="ghost" id="rvBack" data-i18n="review.back"></button></div>
+  <main id="view-ai" class="screen" hidden>
+    <h1 data-i18n="ai.title"></h1>
+    <p class="sub" data-i18n="ai.sub"></p>
+    <div class="card">
+      <div class="how"><div class="num">1</div><div><b data-i18n="ai.s1"></b><br><span class="soft" data-i18n="ai.s1b"></span></div></div>
+      <div class="how"><div class="num">2</div><div><b data-i18n="ai.s2"></b><br><span class="soft" data-i18n="ai.s2b"></span></div></div>
+      <div class="how"><div class="num">3</div><div><b data-i18n="ai.s3"></b><br><span class="soft" data-i18n="ai.s3b"></span></div></div>
+    </div>
+    <div class="card pad"><textarea id="recipeJson" rows="4" data-i18n-ph="recipe.answerPlaceholder"></textarea></div>
+    <div id="aiMsg" class="msgs"></div>
+    <div class="cta-wrap">
+      <button type="button" class="btn sec" id="copyPrompt" data-i18n="recipe.copy"></button>
+      <button type="button" class="btn" id="readJson" data-i18n="recipe.readAnswer"></button>
     </div>
   </main>
 
-  <!-- SAME RECIPE? -->
-  <main id="view-again" class="screen" hidden>
-    <div class="stack">
-      <h1 id="againTitle"></h1>
-      <div id="againMain">
-        <button type="button" class="cta" id="againSame" data-i18n="again.same"></button>
-        <button type="button" class="ghost" id="againOther" data-i18n="again.other"></button>
-      </div>
-      <div id="againList" hidden>
-        <div class="label" data-i18n="again.pick"></div>
-        <div id="againRecipes" class="seg"></div>
-        <button type="button" class="link" id="againNew" data-i18n="again.new"></button>
-      </div>
+  <!-- 1. RECIPE: card -->
+  <main id="view-card" class="screen" hidden>
+    <div class="photo" data-img="mood_00"></div>
+    <h1 id="cardTitle"></h1>
+    <p class="sub" id="cardSub"></p>
+    <div id="cardLeaven"></div>
+    <div class="label" data-i18n="ing.dough"></div>
+    <div class="card" id="cardList"></div>
+    <div class="card">
+      <button type="button" class="row" id="cardEdit"><span data-i18n="card.edit"></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      <button type="button" class="row" id="cardOther"><span data-i18n="card.other"></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+    <div class="cta-wrap"><button type="button" class="btn" id="cardContinue" data-i18n="card.continue"></button></div>
+  </main>
+
+  <main id="view-review" class="screen" hidden>
+    <h1 data-i18n="review.title"></h1>
+    <label class="field"><span class="label" data-i18n="review.name"></span><input type="text" id="rvName"></label>
+    <div class="label" data-i18n="review.ingredients"></div>
+    <div id="rvIng" class="rows"></div>
+    <button type="button" class="textlink" id="rvAdd" data-i18n="review.addIng"></button>
+    <div class="label" data-i18n="review.steps"></div>
+    <div id="rvSteps" class="rows"></div>
+    <div id="rvMsg" class="msgs"></div>
+    <div class="cta-wrap">
+      <button type="button" class="btn" id="rvSave" data-i18n="review.save"></button>
+      <button type="button" class="btn txt" id="rvBack" data-i18n="review.back"></button>
     </div>
   </main>
 
-  <!-- INGREDIENTS -->
-  <main id="view-ingredients" class="screen scroll" hidden>
-    <div class="plan-wrap">
-      <button type="button" class="ghost back" id="ingBack" data-i18n="plan.back"></button>
-      <h2 id="ingTitle"></h2>
-      <div id="ingBody"></div>
-    </div>
+  <main id="view-recipes" class="screen" hidden>
+    <h1 data-i18n="rec.title"></h1>
+    <div class="card" id="recipeList"></div>
+    <div class="cta-wrap"><button type="button" class="btn" id="recNew" data-i18n="rec.new"></button></div>
   </main>
 
-  <!-- NOW -->
-  <main id="view-now" class="screen" hidden>
-    <div class="stack center">
-      <p class="label" id="nowEyebrow"></p>
-      <p class="serif step-name" id="nowName"></p>
-      <div class="when" id="when">
-        <span class="when-day" id="whenDay"></span>
-        <span class="when-time" id="whenTime"></span>
-      </div>
-      <p class="sub" id="nowSub"></p>
-      <p class="need" id="nowNeed" hidden></p>
-      <div class="track"><i id="trackFill"></i></div>
-      <div class="howto" id="nowHow" hidden>
-        <p id="nowInstr"></p>
-        <p class="serif" id="nowSignal"></p>
-      </div>
-      <div class="row">
-        <button type="button" class="cta" id="nowDone" data-i18n="now.done" hidden></button>
-        <button type="button" class="ghost" id="toPlan" data-i18n="now.plan"></button>
-        <button type="button" class="ghost" id="toIng" data-i18n="now.ingredients"></button>
-        <button type="button" class="ghost" id="toHome" data-i18n="now.edit"></button>
-      </div>
-    </div>
-  </main>
-
-  <!-- PLAN -->
-  <main id="view-plan" class="screen scroll" hidden>
-    <div class="plan-wrap">
-      <button type="button" class="ghost back" id="back" data-i18n="plan.back"></button>
-      <h2 id="planTitle"></h2>
-      <p id="planSub"></p>
-      <div id="notices"></div>
-      <div class="plan-bar">
-        <div id="dayTabs" class="tabs" role="tablist"></div>
-        <div class="foot">
-          <button type="button" class="cta small" id="icsBtn" data-i18n="plan.calendar"></button>
-          <button type="button" class="ghost" id="toIng2" data-i18n="now.ingredients"></button>
-          <button type="button" class="ghost" id="reset" data-i18n="plan.reset"></button>
+  <!-- 2. WHEN -->
+  <main id="view-home" class="screen" hidden>
+    <div class="photo" data-img="loaf_00"></div>
+    <h1 data-i18n="when.title"></h1>
+    <div class="opt" id="optNow" role="radio" tabindex="0"><div class="radio"></div><div><h3 data-i18n="when.nowTitle"></h3><p id="nowText"></p></div></div>
+    <div class="opt" id="optPick" role="radio" tabindex="0">
+      <div class="radio"></div>
+      <div class="grow"><h3 data-i18n="when.pickTitle"></h3><p data-i18n="when.pickText"></p>
+        <div id="pickBox" hidden>
+          <input type="datetime-local" id="target" step="900">
+          <div class="chips" id="quickDates"></div>
         </div>
       </div>
-      <p class="hint" id="icsHelp" hidden></p>
-      <ol id="timeline" class="timeline"></ol>
     </div>
+    <div class="recipe-row"><span><span class="soft" data-i18n="home.recipe"></span> <b id="recipeName"></b></span><button type="button" class="textlink inline" id="changeRecipe" data-i18n="home.change"></button></div>
+    <button type="button" class="textlink" id="goCustom"><span data-i18n="when.customize"></span> · <span class="soft" data-i18n="when.customizeSub"></span></button>
+    <div id="whenMsg" class="msgs"></div>
+    <div class="cta-wrap"><button type="button" class="btn" id="homeContinue" data-i18n="card.continue"></button></div>
   </main>
 
-  <footer class="bottom" id="bottom">
-    <p class="quote" id="quote"><q></q><cite></cite></p>
-    <p class="credit" id="credit"></p>
-  </footer>
+  <main id="view-advanced" class="screen" hidden>
+    <h1 data-i18n="cu.title"></h1>
+    <p class="sub" data-i18n="cu.sub"></p>
+    <div class="label" data-i18n="cu.amount"></div>
+    <div class="chips" id="sizes"></div>
+    <div class="label" data-i18n="cu.kitchen"></div>
+    <div class="seg" id="kitchenSeg"></div>
+    <p class="hint" data-i18n="home.tempHint"></p>
+    <div id="feedsBox"><div class="label" data-i18n="cu.feeds"></div><div class="seg" id="feedsSeg"></div></div>
+    <div class="label" data-i18n="cu.night"></div>
+    <div class="card">
+      <label class="row"><span><b data-i18n="cu.nightWarn"></b><br><span class="soft small" id="nightWindow"></span></span>
+        <input type="checkbox" id="quietOn" class="switch"></label>
+      <div class="row times" id="quietRow"><input type="time" id="quietStart" step="900"><span class="soft" data-i18n="home.to"></span><input type="time" id="quietEnd" step="900"></div>
+    </div>
+    <div class="cta-wrap"><button type="button" class="btn" id="advDone" data-i18n="cu.done"></button></div>
+  </main>
+
+  <!-- 3. CONFIRM -->
+  <main id="view-confirm" class="screen" hidden>
+    <div class="mcard">
+      <div class="photo in" data-img="dough_01"></div>
+      <div class="k" data-i18n="cf.ready"></div>
+      <div class="big" id="cfReady"></div>
+      <p class="line" id="cfStarts"></p>
+    </div>
+    <div id="cfNotes"></div>
+    <div class="cta-wrap" id="cfButtons"></div>
+  </main>
+
+  <!-- 4. COOK -->
+  <main id="view-now" class="screen cook" hidden>
+    <div class="mcard">
+      <div class="photo in" id="nowPhoto" data-img="mood_01"></div>
+      <div class="k" id="nowEyebrow"></div>
+      <div class="name" id="nowName"></div>
+      <div class="when" id="when"><span class="day" id="whenDay"></span><span class="time" id="whenTime"></span></div>
+      <p class="line" id="nowSub"></p>
+    </div>
+    <div id="nowNeedBox" hidden><div class="label" data-i18n="now.needLabel"></div><div class="chips" id="nowNeed"></div></div>
+    <div class="card" id="nowHow" hidden>
+      <button type="button" class="row" id="nowHowBtn"><span data-i18n="now.howto"></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      <div id="nowHowBody" class="howbody" hidden><p id="nowInstr"></p><p class="signal" id="nowSignal"></p></div>
+    </div>
+    <div class="cta-wrap above-tabs"><button type="button" class="btn" id="nowDone" data-i18n="now.done" hidden></button></div>
+  </main>
+
+  <main id="view-plan" class="screen cook" hidden>
+    <h1 data-i18n="plan.title"></h1>
+    <p class="sub" id="planSub"></p>
+    <div id="notices"></div>
+    <div class="seg" id="dayTabs" role="tablist"></div>
+    <div class="card"><ol id="timeline" class="timeline"></ol></div>
+    <p class="hint" id="icsHelp" hidden></p>
+  </main>
+
+  <main id="view-ingredients" class="screen cook" hidden>
+    <h1 id="ingTitle"></h1>
+    <p class="sub" id="ingSub"></p>
+    <div id="ingLeaven"></div>
+    <div id="ingBody"></div>
+  </main>
+
+  <nav id="tabs" hidden>
+    <button type="button" data-tab="now"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-i18n="tab.now"></span></button>
+    <button type="button" data-tab="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span data-i18n="tab.plan"></span></button>
+    <button type="button" data-tab="ingredients"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1.2 11.2a1 1 0 0 1-1 .8H7.2a1 1 0 0 1-1-.8L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><span data-i18n="tab.ing"></span></button>
+  </nav>
+
+  <div id="scrim" hidden></div>
+  <div id="sheet" class="sheet" hidden>
+    <div class="grab"></div>
+    <div id="sheetBody"></div>
+  </div>
   <div id="toast" class="toast" role="status" hidden></div>
 
   <script src="i18n.js"></script>
@@ -232,10 +188,8 @@
   <script src="ics.js"></script>
   <script src="recipe.js"></script>
   <script src="convert.js"></script>
+  <script src="flow.js"></script>
   <script src="planner.js"></script>
-  <script src="images.js"></script>
-  <script src="images.local.js" onerror="void 0"></script>
-  <script src="quotes.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
   <script>

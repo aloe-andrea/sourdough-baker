@@ -7,28 +7,46 @@
   var t = I18n.t, L = I18n.L;
 
   var DEFAULTS = {
-    lang: 'en', target: null, preset: 'uno11-uno12', recipes: [], recipeId: null, loafG: null, useStarter: true, ddt: 25, tempC: 22,
-    quietOn: true, quiet: { start: '23:00', end: '07:00' },
-    done: {}, view: 'home'
+    lang: 'en', target: null, preset: 'uno11-uno12', recipes: [], recipeId: null, loafG: null, leaven: null, ddt: 25, tempC: 22,
+    quietOn: true, quiet: { start: '23:00', end: '07:00' }, avoidNight: false, started: false, nowMode: false,
+    done: {}, view: 'import'
   };
 
   function load() {
-    try { return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY)) || {}); }
-    catch (e) { return Object.assign({}, DEFAULTS); }
+    var st;
+    try { st = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY)) || {}); }
+    catch (e) { st = Object.assign({}, DEFAULTS); }
+    var raw = {};
+    try { raw = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { /* none */ }
+    if (raw.useStarter === false && !raw.leaven) st.leaven = 'yeast';          // older saves
+    if (raw.started === undefined) {                                           // older saves: a plan was running
+      st.started = ['now', 'plan', 'ingredients'].indexOf(raw.view) >= 0;
+      if (st.started) st.avoidNight = raw.quietOn !== false;
+    }
+    delete st.useStarter; delete st.intro; delete st.hint;
+    return st;
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* storage unavailable */ } }
 
   var IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   var S = load();
   I18n.set(S.lang);
-  var PLAN = null;       // last computed plan
+  var PLAN = null;       // the plan being followed
   var BUILT = null;      // the current recipe turned into steps and grams
+  var CONV = null;       // result of the leaven conversion for the current recipe, or null
+  var CF = null;         // the plans offered on the Confirm screen
+  var view = null, HIST = [];
+  var dayIdx = null;
 
+  // ---------- recipe and leaven ----------
   function currentRecipe() { return S.recipes.filter(function (r) { return r.id === S.recipeId; })[0] || null; }
-  var CONV = null;       // result of the yeast to starter conversion for the current recipe, or null
+  function origKind(r) { return !r ? null : Convert.isYeastRecipe(r) ? 'yeast' : Convert.isStarterRecipe(r) ? 'starter' : null; }
+  function leavenMode() { return S.leaven || 'starter'; }
   function build() {
-    var r = currentRecipe();
-    CONV = r && S.useStarter ? Convert.yeastToStarter(r, t('ty.starter')) : null;
+    var r = currentRecipe(), kind = origKind(r);
+    CONV = null;
+    if (kind === 'yeast' && leavenMode() === 'starter') CONV = Convert.yeastToStarter(r, t('ty.starter'));
+    else if (kind === 'starter' && leavenMode() === 'yeast') CONV = Convert.starterToYeast(r, t('ty.yeastFresh'), t('ty.water'));
     BUILT = r ? Recipe.fromImported(CONV ? CONV.recipe : r, S.preset, { loafG: S.loafG }) : null;
     return BUILT;
   }
@@ -41,22 +59,21 @@
   function gramsText(st) {
     return (st.grammi || []).map(function (x) { return (x.key ? t('ty.' + x.key) : x.name) + ' ' + Calc.formatG(x.g); }).join(' · ');
   }
-  function needText(st) {
-    var out = gramsText(st);
-    if (st.id === waterStepId()) out += (out ? ' · ' : '') + t('step.water', { c: waterC().c });
+  function needList(st) {
+    var out = (st.grammi || []).map(function (x) { return (x.key ? t('ty.' + x.key) : x.name) + ' ' + Calc.formatG(x.g); });
+    if (st.id === waterStepId()) out.push(t('step.water', { c: waterC().c }));
     return out;
   }
-  var view = 'home';
-  var dayIdx = null;     // selected day tab in the plan
+  function needText(st) { return needList(st).join(' · '); }
 
   // ---------- formatting ----------
   var pad = function (n) { return (n < 10 ? '0' : '') + n; };
   var hhmm = function (ms) { var d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
   var cap = function (s) { return s.charAt(0).toUpperCase() + s.slice(1); };
   var dayLabel = function (ms) { return cap(new Date(ms).toLocaleDateString(I18n.locale(), { weekday: 'long', day: 'numeric', month: 'long' })); };
-  // Italian writes weekdays and months in lower case inside a sentence, English capitalises them
   var dayMid = function (ms) { var s = dayLabel(ms); return I18n.get() === 'it' ? s.toLowerCase() : s; };
   var dayShort = function (ms) { return cap(new Date(ms).toLocaleDateString(I18n.locale(), { weekday: 'short', day: 'numeric' })); };
+  var dayBrief = function (ms) { return cap(new Date(ms).toLocaleDateString(I18n.locale(), { weekday: 'short', day: 'numeric', month: 'short' })); };
   var dayKey = function (ms) { var d = new Date(ms); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); };
   function dur(min) {
     var h = Math.floor(min / 60), m = min % 60;
@@ -73,300 +90,97 @@
     do { d.setDate(d.getDate() + 1); } while (d.getDay() !== 6);
     return d.getTime();
   }
+  function txt(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; e.textContent = text; return e; }
+  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; }
+  var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>';
 
-  // ---------- toast ----------
   var toastTimer;
   function toast(msg, ms) {
-    var el = $('#toast');
-    el.textContent = msg; el.hidden = false;
+    var e = $('#toast');
+    e.textContent = msg; e.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { el.hidden = true; }, ms || 4500);
+    toastTimer = setTimeout(function () { e.hidden = true; }, ms || 4500);
   }
 
   // ---------- photos ----------
-  var IMGS = window.IMAGES || [];
-  // personal photos (images.local.js, not published) replace the stand-ins
-  if (window.IMAGES_LOCAL && window.IMAGES_LOCAL.length) IMGS = IMGS.filter(function (i) { return !i.standin; }).concat(window.IMAGES_LOCAL);
-  var CAT_FOR = { starter: 'starter', impasto: 'dough', pieghe: 'dough', bulk: 'dough', forma: 'dough',
-                  frigo: 'mood', forno: 'dough', cottura: 'loaf', pane: 'loaf' };
-  var bgLayers = [$('#bgA'), $('#bgB')], bgIdx = 0, currentImg = null;
-  var dark = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
-
-  function hash(str) { var h = 0; for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0; return h; }
-  function byUse(use) { return IMGS.filter(function (i) { return i.use === use; }); }
-  function isPortrait() { return window.innerHeight >= window.innerWidth; }
-
-  // The panel follows the phone/computer light or dark setting, tinted from the photo, so it
-  // stays the same style while the photo changes.
-  function applyPalette(img) {
-    var pal = dark && dark.matches ? img.dark : img.light;
-    var r = document.documentElement.style;
-    document.body.dataset.side = img.side || 'left';
-    r.setProperty('--panel', pal.panel);
-    r.setProperty('--panel-solid', pal.panel.replace(/,\s*[\d.]+\)$/, ',0.96)'));
-    r.setProperty('--ink', pal.ink);
-    r.setProperty('--accent', pal.accent);
-    r.setProperty('--btn-ink', pal.btnInk);
-    r.setProperty('--scheme', dark && dark.matches ? 'dark' : 'light');
-    r.setProperty('--veil', dark && dark.matches ? '0.18' : '0.04');
-    var m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute('content', dark && dark.matches ? '#1c130d' : '#efe6d8');
-  }
-
-  function setBackdrop(img, force) {
-    if (!img || (img === currentImg && !force)) return;
-    currentImg = img;
-    var file = isPortrait() ? img.p : img.l;
-    var pre = new Image();
-    pre.onload = function () {
-      if (currentImg !== img) return;
-      var next = bgLayers[1 - bgIdx], prev = bgLayers[bgIdx];
-      next.style.backgroundImage = 'url("' + file + '")';
-      next.classList.add('show');
-      prev.classList.remove('show');
-      bgIdx = 1 - bgIdx;
-      applyPalette(img);
-      $('#credit').textContent = img.title + ' · ' + img.credit;
-    };
-    pre.src = file;
-  }
-
-  function imageForStep(step) {
-    var list = byUse(CAT_FOR[step.foto] || 'loaf');
-    return list.length ? list[hash(step.id) % list.length] : null;
-  }
-
-  // one calm photo for the setup screen, different each day, never rotating
-  function homeImage() {
-    var day = Math.floor(Date.now() / 86400000);
-    var pool = IMGS.filter(function (i) { return i.use === 'loaf' || i.use === 'mood' || i.use === 'dough'; });
-    return pool.length ? pool[day % pool.length] : IMGS[0];
-  }
-
-  // ---------- quotes ----------
-  function newQuote() {
-    var q = window.QUOTES[Math.floor(Math.random() * window.QUOTES.length)];
-    var el = $('#quote');
-    el.style.opacity = 0;
-    setTimeout(function () {
-      el.querySelector('q').textContent = '“' + (q[I18n.get()] || q.en) + '”';
-      el.querySelector('cite').textContent = q.by;
-      el.dataset.q = window.QUOTES.indexOf(q);
-      el.style.opacity = 1;
-    }, 300);
-  }
-  function refreshQuoteLang() {
-    var q = window.QUOTES[+$('#quote').dataset.q || 0];
-    $('#quote').querySelector('q').textContent = '“' + (q[I18n.get()] || q.en) + '”';
+  var STEP_IMG = { starter: 'mood_01', impasto: 'dough_00', pieghe: 'dough_01', bulk: 'dough_00', forma: 'dough_01',
+                   frigo: 'loaf_00', forno: 'loaf_00', cottura: 'mood_00', pane: 'mood_00' };
+  function photoUrl(name) { return 'url("assets/img/' + name + '-p.webp")'; }
+  function paintPhotos() {
+    document.querySelectorAll('.photo[data-img]').forEach(function (p) { p.style.backgroundImage = photoUrl(p.dataset.img); });
   }
 
   // ---------- language ----------
   function applyLang() {
-    build(); recompute();   // the starter name added by the conversion follows the language
+    build(); recompute();
     document.documentElement.lang = I18n.get();
     document.title = t('home.title');
-    document.querySelectorAll('[data-i18n]').forEach(function (el) { el.textContent = t(el.dataset.i18n); });
-    document.querySelectorAll('.lang button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.lang === I18n.get())); });
-    document.querySelectorAll('[data-i18n-ph]').forEach(function (el) { el.placeholder = t(el.dataset.i18nPh); });
-    document.querySelectorAll('[data-i18n-aria]').forEach(function (el) { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
-    renderChoices();
-    renderSizes();
-    renderQuick();
-    refreshQuoteLang();
-    if (currentImg) setBackdrop(currentImg, true);
-    if (view === 'now') renderNow(true);
-    if (view === 'plan') renderPlan();
-    if (view === 'ingredients') renderIngredients();
-    if (view === 'again') renderAgain();
-    if (view === 'review') renderReview();
-    $('#startNowOut').hidden = true;
+    document.querySelectorAll('[data-i18n]').forEach(function (e) { e.textContent = t(e.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-ph]').forEach(function (e) { e.placeholder = t(e.dataset.i18nPh); });
+    if (view) renderView(view);
+    setChrome(view);
   }
 
   // ---------- views ----------
-  var VIEWS = ['intro', 'import', 'review', 'again', 'home', 'now', 'plan', 'ingredients'];
-  var CALM = { intro: 1, import: 1, review: 1, again: 1, home: 1 };
-  function show(v) {
+  var VIEWS = Flow.VIEWS;
+  var COOK = ['now', 'plan', 'ingredients'];
+  var THEME = { import: 'y', ai: 'y', card: 'y', home: 'y', review: 'c', recipes: 'c', advanced: 'c', ingredients: 'c', confirm: 'bur', now: 'bur', plan: 'bur' };
+  var DOTS = { import: 1, card: 1, home: 2, confirm: 3 };
+  var BAR = { import: 'bar.import', ai: 'bar.ai', card: 'bar.card', review: 'bar.review', recipes: 'bar.recipes', home: 'bar.when', advanced: 'bar.custom', confirm: 'bar.confirm', plan: 'tab.plan', ingredients: 'tab.ing' };
+  var THEME_COLOR = { y: '#F4C24B', c: '#FBF3E1', bur: '#5E1420' };
+
+  function setChrome(v) {
+    if (!v) return;
+    $('#topTitle').textContent = v === 'now' ? (currentRecipe() ? currentRecipe().name : '') : t(BAR[v]);
+    var n = DOTS[v];
+    $('#dots').hidden = !n;
+    $('#dots').querySelectorAll('i').forEach(function (d, i) { d.className = n && i === n - 1 ? 'on' : ''; });
+    $('#btnBack').hidden = !HIST.length || COOK.indexOf(v) >= 0;
+    $('#tabs').hidden = COOK.indexOf(v) < 0;
+    document.querySelectorAll('#tabs button').forEach(function (b) { b.className = b.dataset.tab === v ? 'on' : ''; });
+  }
+
+  function show(v, opt) {
+    opt = opt || {};
+    if (COOK.indexOf(v) >= 0 || opt.reset) HIST = [];
+    else if (view && view !== v && !opt.back) HIST.push(view);
     view = v; S.view = v; save();
-    document.body.classList.remove('peek');
+    document.body.className = 't-' + THEME[v];
     document.body.dataset.view = v;
-    VIEWS.forEach(function (n) { $('#view-' + n).hidden = n !== v; });
-    $('#helpBtn').hidden = v === 'intro';
-    $('#view-' + v).scrollTop = 0;
-    if (v === 'home' && IOS && !window.navigator.standalone && !S.hint) { S.hint = true; save(); toast(t('install.text'), 9000); }
-    if (CALM[v]) setBackdrop(homeImage());
-    else {
-      var act = activeStep();
-      setBackdrop(act ? imageForStep(act) : (byUse('loaf')[0] || IMGS[0]));
-    }
-    newQuote();
-    if (v === 'now') renderNow(true);
-    if (v === 'plan') { dayIdx = null; renderPlan(); }
-    if (v === 'ingredients') renderIngredients();
-    if (v === 'again') renderAgain();
+    var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute('content', THEME_COLOR[THEME[v]]);
+    VIEWS.forEach(function (n) { var e = $('#view-' + n); if (e) e.hidden = n !== v; });
+    $('#top').hidden = false;
+    var scr = $('#view-' + v); if (scr) scr.scrollTop = 0;
+    closeSheet();
+    setChrome(v);
+    renderView(v);
+  }
+  function goBack() { var v = HIST.pop(); if (v) show(v, { back: true }); }
+
+  function renderView(v) {
     if (v === 'import') openImport();
-    if (v === 'review') renderReview();
-  }
-
-  // ---------- setup ----------
-  function renderGroup(boxId, descId, defs, selected, onPick) {
-    var box = $(boxId), desc = $(descId);
-    box.innerHTML = '';
-    Object.keys(defs).forEach(function (id) {
-      var d = defs[id];
-      var label = document.createElement('label');
-      label.innerHTML = '<input type="radio"><span></span>';
-      label.querySelector('span').textContent = L(d.breve);
-      var input = label.querySelector('input');
-      input.name = boxId; input.value = id; input.checked = id === selected;
-      input.addEventListener('change', function () { onPick(id); desc.textContent = L(d.descrizione); });
-      if (id === selected) desc.textContent = L(d.descrizione);
-      box.appendChild(label);
-    });
-  }
-
-  function renderChoices() {
-    renderGroup('#presets', '#presetDesc', Recipe.PRESETS, S.preset, function (id) { S.preset = id; S.done = {}; save(); build(); });
-    $('#recipeName').textContent = currentRecipe() ? currentRecipe().name : '';
-    $('#presets').closest('fieldset').hidden = !(BUILT && BUILT.starterG > 0);
-  }
-
-  // loaf size pills: the recipe as written, a few sizes and a free number
-  function renderSizes() {
-    var box = $('#sizes'); box.innerHTML = '';
-    var r = currentRecipe();
-    if (!r) return;
-    var written = Math.round(Calc.totalWeight((CONV && CONV.converted ? CONV.recipe : r).ingredients));
-    var sizes = [written].concat([750, 900].filter(function (g) { return Math.abs(g - written) > 40; }));
-    sizes.forEach(function (g, i) {
-      var label = document.createElement('label');
-      label.innerHTML = '<input type="radio" name="size"><span></span>';
-      label.querySelector('span').textContent = g + ' g' + (i === 0 ? ' ✓' : '');
-      var input = label.querySelector('input');
-      input.checked = i === 0 ? S.loafG == null : S.loafG === g;
-      input.addEventListener('change', function () { S.loafG = i === 0 ? null : g; S.done = {}; save(); build(); $('#sizeG').value = ''; });
-      box.appendChild(label);
-    });
-    var num = document.createElement('input');
-    num.type = 'number'; num.id = 'sizeG'; num.min = 200; num.max = 5000; num.step = 50; num.placeholder = 'g'; num.className = 'sizeg';
-    num.setAttribute('aria-label', t('home.size'));
-    if (S.loafG && sizes.indexOf(S.loafG) < 0) num.value = S.loafG;
-    num.addEventListener('change', function () {
-      var v = Math.round(+num.value);
-      S.loafG = v >= 200 ? v : null; S.done = {}; save(); build(); renderSizes();
-    });
-    box.appendChild(num);
-  }
-
-  // quick picks for the day and time
-  function nextDow(dow, h, m) {
-    var d = new Date(); d.setHours(h, m, 0, 0);
-    var add = (dow - d.getDay() + 7) % 7;
-    if (add === 0 && d.getTime() <= Date.now()) add = 7;
-    d.setDate(d.getDate() + add);
-    return d.getTime();
-  }
-  function renderQuick() {
-    var box = $('#quickDates'); box.innerHTML = '';
-    [[6, 13, 0], [0, 13, 0], [0, 19, 0]].forEach(function (q) {
-      var ms = nextDow(q[0], q[1], q[2]);
-      var b = document.createElement('button'); b.type = 'button';
-      b.textContent = cap(new Date(ms).toLocaleDateString(I18n.locale(), { weekday: 'short' })) + ' ' + pad(q[1]) + ':' + pad(q[2]);
-      b.addEventListener('click', function () { S.target = ms; $('#target').value = toLocalInput(ms); save(); $('#startNowOut').hidden = true; });
-      box.appendChild(b);
-    });
-  }
-
-  function fillForm() {
-    if (!S.target) S.target = defaultTarget();
-    $('#target').value = toLocalInput(S.target);
-    $('#temp').value = S.tempC;
-    $('#tempOut').textContent = S.tempC;
-    $('#ddt').value = S.ddt; $('#ddtOut').textContent = S.ddt;
-    $('#quietOn').checked = S.quietOn;
-    $('#quietStart').value = S.quiet.start;
-    $('#quietEnd').value = S.quiet.end;
-    $('#quietRow').hidden = !S.quietOn;
-  }
-
-  function bind() {
-    document.querySelectorAll('.lang button').forEach(function (b) {
-      b.addEventListener('click', function () { S.lang = b.dataset.lang; I18n.set(S.lang); save(); applyLang(); });
-    });
-    if (dark && dark.addEventListener) dark.addEventListener('change', function () { if (currentImg) applyPalette(currentImg); });
-    $('#detailsBtn').addEventListener('click', function () {
-      var d = $('#details'), open = d.hidden;
-      d.hidden = !open;
-      this.setAttribute('aria-expanded', String(open));
-      this.querySelector('i').textContent = open ? '−' : '+';
-    });
-    $('#ddt').addEventListener('input', function (e) { S.ddt = +e.target.value; $('#ddtOut').textContent = S.ddt; save(); });
-    $('#temp').addEventListener('input', function (e) { S.tempC = +e.target.value; $('#tempOut').textContent = S.tempC; save(); });
-    $('#quietOn').addEventListener('change', function (e) { S.quietOn = e.target.checked; $('#quietRow').hidden = !S.quietOn; save(); });
-    $('#quietStart').addEventListener('change', function (e) { if (e.target.value) { S.quiet.start = e.target.value; save(); } });
-    $('#quietEnd').addEventListener('change', function (e) { if (e.target.value) { S.quiet.end = e.target.value; save(); } });
-
-    var preview = null;
-    function hidePreview() { $('#startNowOut').hidden = true; preview = null; }
-    $('#form').addEventListener('input', hidePreview);
-    $('#form').addEventListener('change', hidePreview);
-    $('#startNowBtn').addEventListener('click', function () {
-      var res = Planner.earliest({ steps: currentSteps(), tempC: S.tempC, quiet: S.quietOn ? S.quiet : null, start: Date.now() });
-      $('#startNowOut').hidden = false;
-      if (!res.ok) { preview = null; $('#startNowText').textContent = t('notice.none'); $('#startNowGo').hidden = true; return; }
-      preview = res;
-      var vars = { day: dayMid(res.target), t: hhmm(res.target), sd: dayMid(res.startAt), st: hhmm(res.startAt) };
-      $('#startNowText').textContent = t(res.delayed ? 'home.startNowLater' : 'home.startNowResult', vars);
-      $('#startNowGo').textContent = t(res.delayed ? 'home.startNowGoLater' : 'home.startNowGo');
-      $('#startNowGo').hidden = false;
-    });
-    $('#startNowGo').addEventListener('click', function () {
-      if (!preview) return;
-      var steps = currentSteps();
-      S.target = preview.target; S.done = {};
-      if (!preview.delayed) S.done[steps[0].id] = Date.now();   // starting right now: the first step is under way
-      save(); recompute(); show('now');
-    });
-    $('#form').addEventListener('submit', function (e) {
-      e.preventDefault();
-      var v = $('#target').value;
-      if (!v) return;
-      S.target = new Date(v).getTime();
-      S.done = {};
-      save(); recompute(); show('now');
-    });
-    $('#helpBtn').addEventListener('click', function () { show('intro'); });
-    $('#peekBtn').addEventListener('click', function () { document.body.classList.toggle('peek'); });
-    document.addEventListener('click', function (e) {
-      if (document.body.classList.contains('peek') && !e.target.closest('.help, .lang')) document.body.classList.remove('peek');
-    });
-    $('#introGo').addEventListener('click', function () { S.intro = true; save(); show(currentRecipe() ? 'home' : 'import'); });
-    $('#changeRecipe').addEventListener('click', function () { show('again'); $('#againMain').hidden = true; $('#againList').hidden = false; });
-    $('#toIng').addEventListener('click', function () { show('ingredients'); });
-    $('#toIng2').addEventListener('click', function () { show('ingredients'); });
-    $('#ingBack').addEventListener('click', function () { show(PLAN && PLAN.ok ? 'plan' : 'home'); });
-    bindRecipeUi();
-    $('#toPlan').addEventListener('click', function () { show('plan'); });
-    $('#toHome').addEventListener('click', function () { show('home'); });
-    $('#back').addEventListener('click', function () { show('now'); });
-    $('#nowDone').addEventListener('click', function () { var a = activeStep(); if (a) markDone(a.id); });
-    $('#icsBtn').addEventListener('click', exportCalendar);
-    $('#reset').addEventListener('click', function () {
-      if (!Object.keys(S.done).length || confirm(t('plan.resetConfirm'))) { S.done = {}; save(); recompute(); renderPlan(); }
-    });
-    document.addEventListener('visibilitychange', function () { if (!document.hidden && PLAN && PLAN.ok) { recompute(); if (view === 'plan') renderPlan(); } });
+    else if (v === 'card') renderCard();
+    else if (v === 'review') renderReview();
+    else if (v === 'recipes') renderRecipes();
+    else if (v === 'home') renderHome();
+    else if (v === 'advanced') renderAdvanced();
+    else if (v === 'confirm') renderConfirm();
+    else if (v === 'now') renderNow();
+    else if (v === 'plan') { renderPlan(); }
+    else if (v === 'ingredients') renderIngredients();
   }
 
   // ---------- plan ----------
-  function compute(done) {
+  function compute(done, avoid) {
     if (!BUILT) return { ok: false, steps: [], avvisi: [] };
     return Planner.plan({
       steps: currentSteps(),
       target: S.target, tempC: S.tempC,
-      quiet: S.quietOn ? S.quiet : null,
+      quiet: avoid ? S.quiet : null,
       now: Date.now(), done: done
     });
   }
-  function recompute() { PLAN = compute(S.done); return PLAN; }
+  function recompute() { PLAN = compute(S.done, S.avoidNight); return PLAN; }
   function activeStep() {
     if (!PLAN || !PLAN.ok) return null;
     return PLAN.steps.filter(function (s) { return !s.fatto; })[0] || null;
@@ -375,14 +189,12 @@
   function markDone(id) {
     var next = Object.assign({}, S.done);
     next[id] = Date.now();
-    var res = compute(next);
+    var res = compute(next, S.avoidNight);
     if (!res.ok) { toast(t('toast.impossible')); return; }
     S.done = next;
     if (res.target !== S.target) { toast(t('toast.moved', { day: dayMid(res.target), t: hhmm(res.target) })); S.target = res.target; }
     save(); recompute();
-    var a = activeStep();
-    if (a) setBackdrop(imageForStep(a));
-    if (view === 'now') renderNow(true); else renderPlan();
+    if (view === 'now') renderNow(); else renderPlan();
   }
 
   function unmarkDone(id) {
@@ -396,231 +208,7 @@
     S.done = next; save(); recompute(); renderPlan();
   }
 
-  // ---------- "now" screen ----------
-  var tickTimer;
-
-  function renderNow(full) {
-    clearInterval(tickTimer);
-    if (!PLAN || !PLAN.ok) {
-      $('#nowEyebrow').textContent = '';
-      $('#nowName').textContent = t('notice.none');
-      $('#when').hidden = true; $('#nowSub').textContent = ''; $('#nowNeed').hidden = true;
-      $('#nowHow').hidden = true; $('#nowDone').hidden = true;
-      return;
-    }
-    $('#when').hidden = false;
-    var a = activeStep();
-    if (!a) {
-      $('#nowEyebrow').textContent = '';
-      $('#nowName').textContent = t('now.finished');
-      $('#when').hidden = true; $('#nowSub').textContent = ''; $('#nowNeed').hidden = true;
-      $('#trackFill').style.width = '100%';
-      $('#nowHow').hidden = true; $('#nowDone').hidden = true;
-      return;
-    }
-    $('#nowName').textContent = L(a.nome);
-    var need = needText(a);
-    $('#nowNeed').hidden = !need; $('#nowNeed').textContent = need ? t('now.need', { list: need }) : '';
-    var firstStart = PLAN.steps.reduce(function (m, s) { return s.inizio != null ? Math.min(m, s.inizio) : m; }, Infinity);
-
-    function paint() {
-      var now = Date.now(), due = now >= a.inizio;
-      $('#nowEyebrow').textContent = due ? t('now.due') : t('now.next');
-      $('#nowDone').hidden = !due;
-      if (!due) {
-        $('#whenDay').textContent = dayLabel(a.inizio);
-        $('#whenTime').textContent = hhmm(a.inizio);
-        $('#nowSub').textContent = '';
-      } else if (a.entro > a.inizio) {
-        $('#whenDay').textContent = t('now.latestBy');
-        $('#whenTime').textContent = hhmm(a.entro);
-        $('#nowSub').textContent = now > a.entro ? t('now.late') : '';
-      } else {
-        $('#whenDay').textContent = t('now.right');
-        $('#whenTime').textContent = hhmm(a.inizio);
-        // steps with no slack get a 15 minute grace before the "late" message
-        $('#nowSub').textContent = now <= a.inizio + 15 * MIN ? '' : t('now.late');
-      }
-      var total = PLAN.target - firstStart;
-      var p = total > 0 ? Math.max(0, Math.min(100, (now - firstStart) / total * 100)) : 0;
-      $('#trackFill').style.width = p.toFixed(1) + '%';
-    }
-    var due0 = Date.now() >= a.inizio;
-    $('#nowHow').hidden = !due0;
-    if (due0) { $('#nowInstr').textContent = L(a.istruzioni); $('#nowSignal').textContent = L(a.segnale); }
-    paint();
-    tickTimer = setInterval(function () {
-      var nowDue = Date.now() >= a.inizio;
-      if (nowDue !== due0) { renderNow(); return; }
-      paint();
-    }, 15000);
-    if (full) { var img = imageForStep(a); if (img) setBackdrop(img); }
-  }
-
-  // ---------- plan screen ----------
-  function notices() {
-    var box = $('#notices');
-    box.innerHTML = '';
-    function add(text) {
-      var p = document.createElement('p');
-      p.className = 'notice';
-      p.textContent = text;
-      box.appendChild(p);
-    }
-    if (!PLAN.ok) { add(t('notice.none')); return; }
-    PLAN.avvisi.forEach(function (a) {
-      if (a.codice === 'target-spostato') {
-        add(t('notice.moved', { day: dayMid(PLAN.target), t: hhmm(PLAN.target), d: dur(Math.abs(a.spostamentoMin)),
-                                dir: t(a.spostamentoMin > 0 ? 'notice.later' : 'notice.earlier') }));
-      } else if (a.codice === 'passo-oltre-massimo') {
-        add(t('notice.over'));
-      }
-    });
-  }
-
-  function renderPlan() {
-    if (!PLAN) recompute();
-    notices();
-    var list = $('#timeline'), tabs = $('#dayTabs');
-    list.innerHTML = ''; tabs.innerHTML = '';
-    if (!PLAN.ok) { $('#planTitle').textContent = ''; $('#planSub').textContent = ''; return; }
-
-    $('#planTitle').textContent = dayLabel(PLAN.target) + ', ' + hhmm(PLAN.target);
-    $('#icsHelp').hidden = !IOS; $('#icsHelp').textContent = t('plan.calendarHelpIos');
-    var first = activeStep();
-    $('#planSub').textContent = first ? t('plan.starts', { day: dayMid(first.inizio), t: hhmm(first.inizio) }) : t('plan.allDone');
-
-    // group the steps by day
-    var days = [], byKey = {};
-    PLAN.steps.forEach(function (s, i) {
-      if (s.inizio == null) return;
-      var k = dayKey(s.inizio);
-      if (!byKey[k]) { byKey[k] = { key: k, at: s.inizio, items: [] }; days.push(byKey[k]); }
-      byKey[k].items.push({ s: s, i: i });
-    });
-    if (dayIdx == null || dayIdx >= days.length) {
-      var act = first ? dayKey(first.inizio) : null, found = 0;
-      days.forEach(function (d, n) { if (d.key === act) found = n; });
-      dayIdx = found;
-    }
-
-    days.forEach(function (d, n) {
-      var b = document.createElement('button');
-      b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(n === dayIdx));
-      b.textContent = dayShort(d.at);
-      b.addEventListener('click', function () { dayIdx = n; renderPlan(); });
-      tabs.appendChild(b);
-    });
-
-    var day = days[dayIdx], prev = null;
-    // the night before this day's first step
-    if (S.quietOn && dayIdx > 0) {
-      var before = days[dayIdx - 1].items[days[dayIdx - 1].items.length - 1].s;
-      if (Planner.blockedIntervals(before.inizio, day.items[0].s.inizio, S.quiet).some(function (iv) { return iv[0] >= before.inizio && iv[1] <= day.items[0].s.inizio; })) {
-        list.appendChild(nightRow());
-      }
-    }
-    day.items.forEach(function (it) {
-      if (prev && S.quietOn) {
-        var b = Planner.blockedIntervals(prev.inizio, it.s.inizio, S.quiet).filter(function (iv) { return iv[0] >= prev.inizio && iv[1] <= it.s.inizio; });
-        if (b.length) list.appendChild(nightRow());
-      }
-      list.appendChild(stepItem(it.s, it.i));
-      prev = it.s;
-    });
-  }
-
-  function nightRow() {
-    var n = document.createElement('li');
-    n.className = 'night';
-    n.textContent = '☾  ' + t('plan.rest', { a: S.quiet.start, b: S.quiet.end });
-    return n;
-  }
-
-  function stepItem(s, i) {
-    var li = document.createElement('li');
-    li.className = 'step' + (s.fatto ? ' done' : '');
-    li.style.animationDelay = Math.min(i, 10) * 30 + 'ms';
-
-    var head = document.createElement('button');
-    head.type = 'button'; head.setAttribute('aria-expanded', 'false');
-    var time = document.createElement('time'); time.textContent = hhmm(s.inizio);
-    var name = document.createElement('span'); name.className = 'name'; name.textContent = L(s.nome);
-    var meta = document.createElement('span'); meta.className = 'meta';
-    if (s.fatto) meta.textContent = t('chip.done');
-    else {
-      var lim = document.createElement('b');
-      lim.textContent = s.entro > s.inizio ? t('chip.by', { t: hhmm(s.entro) }) : t('chip.exact');
-      meta.appendChild(lim);
-      var rest = ' · ' + t('chip.then', { d: dur(s.durataMin) });
-      if (s.allungato) rest += ' · ' + t('chip.long');
-      if (s.accorciato) rest += ' · ' + t('chip.short');
-      if (s.stimato) rest += ' · ' + t('chip.est');
-      meta.appendChild(document.createTextNode(rest));
-    }
-    head.appendChild(time); head.appendChild(name); head.appendChild(meta);
-
-    var detail = document.createElement('div');
-    detail.className = 'detail'; detail.hidden = true;
-    var act = document.createElement('div'); act.className = 'actions';
-    if (!s.fatto) {
-      var p1 = document.createElement('p'); p1.textContent = L(s.istruzioni);
-      var p2 = document.createElement('p'); p2.className = 'signal'; p2.textContent = L(s.segnale);
-      var done = document.createElement('button'); done.type = 'button'; done.textContent = t('act.done');
-      done.addEventListener('click', function () { markDone(s.id); });
-      act.appendChild(done);
-      var need = needText(s);
-      if (need) { var pg = document.createElement('p'); pg.className = 'grams'; pg.textContent = need; detail.appendChild(pg); }
-      detail.appendChild(p1); detail.appendChild(p2);
-    } else {
-      var undo = document.createElement('button'); undo.type = 'button'; undo.className = 'secondary'; undo.textContent = t('act.undo');
-      undo.addEventListener('click', function () { unmarkDone(s.id); });
-      act.appendChild(undo);
-    }
-    detail.appendChild(act);
-
-    head.addEventListener('click', function () {
-      var open = detail.hidden;
-      detail.hidden = !open;
-      head.setAttribute('aria-expanded', String(open));
-    });
-
-    li.appendChild(head); li.appendChild(detail);
-    return li;
-  }
-
-  // ---------- calendar export ----------
-  function exportCalendar() {
-    if (!PLAN || !PLAN.ok) return;
-    var events = [], uid = Date.now().toString(36);
-    PLAN.steps.forEach(function (s, i) {
-      if (s.fatto || s.inizio == null) return;
-      var lines = [L(s.istruzioni)];
-      var need = needText(s);
-      if (need) lines.unshift(need);
-      if (s.entro > s.inizio) lines.push(t('ics.latest', { t: hhmm(s.entro) }));
-      lines.push(L(s.segnale));
-      events.push({ uid: uid + '-' + i + '@sourdough', start: s.inizio, end: s.inizio + 15 * MIN, summary: L(s.nome),
-                    description: lines.join('\n'), alarms: [10, 0] });
-    });
-    events.push({ uid: uid + '-ready@sourdough', start: PLAN.target, end: PLAN.target + 30 * MIN, summary: t('ics.ready'),
-                  description: '', alarms: [0] });
-    var blob = new Blob([Ics.build(events, { name: 'Sourdough' })], { type: 'text/calendar;charset=utf-8' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = 'sourdough-plan.ics';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
-    toast(t(IOS ? 'toast.calendarIos' : 'toast.calendar'));
-  }
-
-  // re-pick the right crop when the phone rotates or the window is resized
-  var rzT, wasPortrait = isPortrait();
-  window.addEventListener('resize', function () {
-    clearTimeout(rzT);
-    rzT = setTimeout(function () { if (isPortrait() !== wasPortrait) { wasPortrait = isPortrait(); if (currentImg) setBackdrop(currentImg, true); } }, 250);
-  });
-
-  // ---------- recipe: read it, check it, choose it ----------
+  // ---------- recipe import ----------
   var RV = null;       // the recipe being checked
   var ROWS = [
     { phase: 'autolyse', optional: true }, { phase: 'mix' }, { phase: 'fold', optional: true, fold: true },
@@ -630,21 +218,18 @@
 
   function showMsgs(box, errors, warnings) {
     box.innerHTML = '';
-    (errors || []).forEach(function (e) { var p = document.createElement('p'); p.className = 'msg err'; p.textContent = t('err.' + e.code, { d: e.detail || '' }); box.appendChild(p); });
-    (warnings || []).forEach(function (w) { var p = document.createElement('p'); p.className = 'msg warn'; p.textContent = t('warn.' + w.code, { d: w.detail || '' }); box.appendChild(p); });
+    (errors || []).forEach(function (e) { box.appendChild(txt('p', 'msg err', t('err.' + e.code, { d: e.detail || '' }))); });
+    (warnings || []).forEach(function (w) { box.appendChild(txt('p', 'msg warn', t('warn.' + w.code, { d: w.detail || '' }))); });
   }
 
   function openImport() {
     $('#importMsg').innerHTML = '';
-    $('#importAi').hidden = true;
-    $('#importCancel').hidden = !S.recipes.length;
   }
 
-  // a link: the relay downloads the page and sends back the recipe it finds
   function readLink(url) {
     var box = $('#importMsg'), relay = window.SOURDOUGH_RELAY;
     if (!relay) { showMsgs(box, [{ code: 'no-relay' }], []); return; }
-    box.innerHTML = ''; var p = document.createElement('p'); p.className = 'msg'; p.textContent = t('recipe.reading'); box.appendChild(p);
+    box.innerHTML = ''; box.appendChild(txt('p', 'msg', t('recipe.reading')));
     $('#readText').disabled = true;
     var ctl = new AbortController(), timer = setTimeout(function () { ctl.abort(); }, 25000);
     fetch(relay + (relay.indexOf('?') < 0 ? '?' : '&') + 'url=' + encodeURIComponent(url), { signal: ctl.signal })
@@ -691,10 +276,9 @@
     i.value = value === '' || value == null ? '' : value; i.addEventListener('input', function () { on(i.value === '' ? 0 : +i.value); });
     return i;
   }
-  function txt(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; e.textContent = text; return e; }
 
   function renderReview() {
-    if (!RV) return;
+    if (!RV) { show(currentRecipe() ? 'card' : 'import', { reset: true }); return; }
     var name = $('#rvName'); name.value = RV.name; name.oninput = function () { RV.name = name.value; };
     var box = $('#rvIng'); box.innerHTML = '';
     RV.ing.forEach(function (it, i) {
@@ -761,76 +345,394 @@
     });
     var rec = { id: RV.id || 'r' + Date.now().toString(36), name: (RV.name || '').trim() || t('recipe.untitled'), ingredients: ing, steps: steps, bake: bake, savedAt: Date.now() };
     S.recipes = [rec].concat(S.recipes.filter(function (r) { return r.id !== rec.id; })).slice(0, 5);
-    S.recipeId = rec.id; S.loafG = null; S.done = {}; S.useStarter = true;
-    save(); build(); renderChoices(); renderSizes(); recompute();
+    useRecipe(rec.id);
     RV = null;
-    show('home');
+    show('card', { reset: true });
   }
 
-  function chooseRecipe(id) {
-    S.recipeId = id; S.loafG = null; S.done = {}; S.useStarter = true;
-    save(); build(); renderChoices(); renderSizes(); recompute();
-    show('home');
+  // a new recipe is in use: the plan being followed no longer applies
+  function useRecipe(id) {
+    S.recipeId = id; S.loafG = null; S.done = {}; S.leaven = null; S.started = false; S.avoidNight = false; S.nowMode = false;
+    save(); build(); recompute();
   }
 
-  function renderAgain() {
-    var r = currentRecipe();
-    $('#againTitle').textContent = r ? t('again.title', { name: r.name }) : '';
-    var box = $('#againRecipes'); box.innerHTML = '';
+  // ---------- recipe card and leaven switch ----------
+  function renderLeaven(box) {
+    var r = currentRecipe(), kind = origKind(r);
+    box.innerHTML = '';
+    if (!kind) return;
+    box.appendChild(txt('div', 'label', t('card.leaven')));
+    var seg = el('div', 'seg');
+    (kind === 'yeast' ? ['yeast', 'starter'] : ['starter', 'yeast']).forEach(function (m) {
+      var b = txt('button', m === leavenMode() ? 'on' : '', t(m === 'yeast' ? 'card.yeast' : 'card.starter')); b.type = 'button';
+      b.addEventListener('click', function () {
+        if (m === leavenMode()) return;
+        if (S.started && Object.keys(S.done).length && !confirm(t('plan.resetConfirm'))) return;
+        S.leaven = m; S.done = {}; save(); build(); recompute();
+        renderView(view);
+      });
+      seg.appendChild(b);
+    });
+    box.appendChild(seg);
+    var b = BUILT;
+    if (CONV && CONV.converted && b) {
+      var sg = b.ingredients.reduce(function (a, i) { return a + (i.type === 'starter' ? i.g : 0); }, 0);
+      var yg = b.ingredients.reduce(function (a, i) { return a + (i.type === 'yeast' ? i.g : 0); }, 0);
+      box.appendChild(txt('p', 'hint', kind === 'yeast'
+        ? t('conv.toStarter', { s: Calc.formatG(sg), y: Calc.formatG(CONV.info.yeastG * b.scale), f: CONV.info.factor })
+        : t('conv.toYeast', { y: Calc.formatG(yg), s: Calc.formatG(CONV.info.starterG * b.scale), f: CONV.info.factor })));
+    } else if (CONV) {
+      box.appendChild(txt('p', 'hint', t('conv.skipped')));
+    }
+  }
+
+  function doughRows(b) {
+    var pc = Calc.bakersPercent(b.ingredients), frag = document.createDocumentFragment();
+    b.ingredients.forEach(function (i, k) {
+      var row = el('div', 'row');
+      row.appendChild(txt('span', '', i.name));
+      var v = el('span', 'v'); v.appendChild(txt('b', '', Calc.formatG(i.g))); v.appendChild(document.createTextNode('  ' + Math.round(pc.byIndex[k]) + ' %'));
+      row.appendChild(v); frag.appendChild(row);
+    });
+    return frag;
+  }
+
+  function renderCard() {
+    var r = currentRecipe(), b = BUILT;
+    if (!r || !b) { show('import', { reset: true }); return; }
+    $('#cardTitle').textContent = r.name;
+    $('#cardSub').textContent = t('card.grams', { g: Calc.formatG(b.loafG) });
+    renderLeaven($('#cardLeaven'));
+    var list = $('#cardList'); list.innerHTML = ''; list.appendChild(doughRows(b));
+    paintPhotos();
+  }
+
+  function renderRecipes() {
+    var box = $('#recipeList'); box.innerHTML = '';
     S.recipes.forEach(function (rec) {
-      var label = document.createElement('label');
-      label.innerHTML = '<input type="radio" name="again"><span></span>';
-      label.querySelector('span').textContent = rec.name;
-      var input = label.querySelector('input'); input.checked = rec.id === S.recipeId;
-      input.addEventListener('change', function () { chooseRecipe(rec.id); });
-      box.appendChild(label);
+      var row = el('button', 'row'); row.type = 'button';
+      row.appendChild(txt('span', '', rec.name));
+      row.appendChild(txt('span', 'v', rec.id === S.recipeId ? '✓' : ''));
+      row.addEventListener('click', function () {
+        if (rec.id !== S.recipeId) useRecipe(rec.id);
+        show('card', { reset: true });
+      });
+      box.appendChild(row);
     });
   }
 
-  function showAgain() { show('again'); $('#againMain').hidden = false; $('#againList').hidden = true; }
+  // ---------- step 2: when ----------
+  var whenMode = 'pick';
+  function nextDow(dow, h, m) {
+    var d = new Date(); d.setHours(h, m, 0, 0);
+    var add = (dow - d.getDay() + 7) % 7;
+    if (add === 0 && d.getTime() <= Date.now()) add = 7;
+    d.setDate(d.getDate() + add);
+    return d.getTime();
+  }
+  function earliestNow() {
+    return Planner.earliest({ steps: currentSteps(), tempC: S.tempC, quiet: null, start: Date.now() });
+  }
+  function renderHome() {
+    if (!currentRecipe()) { show('import', { reset: true }); return; }
+    if (!S.target) S.target = defaultTarget();
+    $('#target').value = toLocalInput(S.target);
+    $('#recipeName').textContent = currentRecipe().name;
+    $('#whenMsg').innerHTML = '';
+    $('#optNow').className = 'opt' + (whenMode === 'now' ? ' on' : '');
+    $('#optPick').className = 'opt' + (whenMode === 'pick' ? ' on' : '');
+    $('#optNow').setAttribute('aria-checked', String(whenMode === 'now'));
+    $('#optPick').setAttribute('aria-checked', String(whenMode === 'pick'));
+    $('#pickBox').hidden = whenMode !== 'pick';
+    var res = earliestNow();
+    $('#nowText').textContent = res.ok ? t('when.nowText', { day: dayMid(res.target), t: hhmm(res.target) }) : t('notice.none');
+    var box = $('#quickDates'); box.innerHTML = '';
+    [[6, 13, 0], [0, 13, 0], [0, 19, 0]].forEach(function (q) {
+      var ms = nextDow(q[0], q[1], q[2]);
+      var b = txt('button', 'chip', cap(new Date(ms).toLocaleDateString(I18n.locale(), { weekday: 'short' })) + ' ' + pad(q[1]) + ':' + pad(q[2])); b.type = 'button';
+      b.addEventListener('click', function () { S.target = ms; $('#target').value = toLocalInput(ms); save(); });
+      box.appendChild(b);
+    });
+    paintPhotos();
+  }
+  function continueFromHome() {
+    if (!BUILT) return;
+    if (whenMode === 'now') {
+      var res = earliestNow();
+      if (!res.ok) { $('#whenMsg').innerHTML = ''; $('#whenMsg').appendChild(txt('p', 'msg err', t('notice.none'))); return; }
+      S.target = res.target; S.nowMode = true;
+    } else {
+      var v = $('#target').value;
+      if (!v) return;
+      S.target = new Date(v).getTime(); S.nowMode = false;
+    }
+    S.done = {};
+    CF = { ideal: compute({}, false), avoid: null, mode: 'ideal' };
+    save(); show('confirm');
+  }
 
+  // ---------- customize ----------
+  function renderAdvanced() {
+    var b = BUILT; if (!b) { show('import', { reset: true }); return; }
+    var r = currentRecipe();
+    var asWritten = Math.round(Calc.totalWeight((CONV && CONV.converted ? CONV.recipe : r).ingredients));
+    var sizes = [[null, t('cu.asWritten')], [Math.round(asWritten * 0.75 / 50) * 50, t('cu.smaller')], [Math.round(asWritten * 1.25 / 50) * 50, t('cu.bigger')]];
+    var sb = $('#sizes'); sb.innerHTML = '';
+    sizes.forEach(function (s) {
+      var c = txt('button', 'chip' + ((S.loafG || null) === s[0] ? ' on' : ''), s[1] + (s[0] ? ' · ' + s[0] + ' g' : ' · ' + asWritten + ' g')); c.type = 'button';
+      c.addEventListener('click', function () { S.loafG = s[0]; S.done = {}; save(); build(); recompute(); renderAdvanced(); });
+      sb.appendChild(c);
+    });
+    var ks = $('#kitchenSeg'); ks.innerHTML = '';
+    [[18, 'cu.cool'], [22, 'cu.normal'], [26, 'cu.warm']].forEach(function (k) {
+      var on = Math.abs(S.tempC - k[0]) <= 2;
+      var bt = el('button', on ? 'on' : '', t(k[1]) + '<small>' + k[0] + ' °C</small>'); bt.type = 'button';
+      bt.addEventListener('click', function () { S.tempC = k[0]; save(); recompute(); renderAdvanced(); });
+      ks.appendChild(bt);
+    });
+    $('#feedsBox').hidden = !(b.starterG > 0);
+    var fs = $('#feedsSeg'); fs.innerHTML = '';
+    [['uno11-uno12', 'cu.feedsClassic', 'cu.feedsClassicSub'], ['singolo', 'cu.feedsQuick', 'cu.feedsQuickSub']].forEach(function (f) {
+      var on = f[0] === 'singolo' ? S.preset === 'singolo' : S.preset !== 'singolo';
+      var bt = el('button', on ? 'on' : '', t(f[1]) + '<small>' + t(f[2]) + '</small>'); bt.type = 'button';
+      bt.addEventListener('click', function () { S.preset = f[0]; S.done = {}; save(); build(); recompute(); renderAdvanced(); });
+      fs.appendChild(bt);
+    });
+    $('#quietOn').checked = S.quietOn;
+    $('#quietStart').value = S.quiet.start; $('#quietEnd').value = S.quiet.end;
+    $('#quietRow').hidden = !S.quietOn;
+    $('#nightWindow').textContent = t('cu.nightWindow', { a: S.quiet.start, b: S.quiet.end });
+  }
+
+  // ---------- step 3: confirm ----------
+  function renderConfirm() {
+    if (!CF) { show(currentRecipe() ? 'home' : 'import', { reset: true }); return; }
+    var plan = CF.mode === 'avoid' ? CF.avoid : CF.ideal, notes = $('#cfNotes'), btns = $('#cfButtons');
+    notes.innerHTML = ''; btns.innerHTML = '';
+    paintPhotos();
+    function button(cls, label, fn) { var b = txt('button', 'btn' + (cls ? ' ' + cls : ''), label); b.type = 'button'; b.addEventListener('click', fn); btns.appendChild(b); }
+    if (!plan.ok) {
+      $('#cfReady').textContent = '–'; $('#cfStarts').textContent = '';
+      notes.appendChild(txt('p', 'notice', t('notice.none')));
+      button('', t('review.back'), goBack);
+      return;
+    }
+    var sm = Flow.summary(plan, { quiet: S.quiet });
+    var todo = plan.steps.filter(function (s) { return !s.fatto; }).length;
+    $('#cfReady').textContent = dayBrief(plan.target) + ', ' + hhmm(plan.target);
+    $('#cfStarts').textContent = t('cf.starts', { day: dayMid(sm.firstAt), t: hhmm(sm.firstAt), n: todo });
+    var night = S.quietOn ? sm.nightSteps : [];
+    plan.avvisi.forEach(function (a) {
+      if (a.codice === 'target-spostato') notes.appendChild(txt('p', 'notice', t('notice.moved', { day: dayMid(plan.target), t: hhmm(plan.target), d: dur(Math.abs(a.spostamentoMin)), dir: t(a.spostamentoMin > 0 ? 'notice.later' : 'notice.earlier') })));
+    });
+    if (CF.mode === 'avoid') {
+      var same = Math.abs(CF.avoid.target - CF.ideal.target) < MIN;
+      notes.appendChild(txt('p', 'okcard', same ? t('cf.nightFreeSame') : t('cf.nightFreeMoved', { day: dayMid(plan.target), t: hhmm(plan.target) })));
+      button('', t('cf.start'), startPlan);
+      button('txt', t('cf.original'), function () { CF.mode = 'ideal'; renderConfirm(); });
+      return;
+    }
+    if (night.length) {
+      var card = el('div', 'nightcard');
+      card.appendChild(el('div', 'h', MOON)); card.firstChild.appendChild(document.createTextNode(night.length === 1 ? t('cf.nightOne') : t('cf.nightMany', { n: night.length })));
+      var pills = el('div', 'pills');
+      night.forEach(function (n) { var s = el('span'); s.appendChild(txt('b', '', hhmm(n.at))); s.appendChild(document.createTextNode('  ' + L(n.name))); pills.appendChild(s); });
+      card.appendChild(pills); notes.appendChild(card);
+      button('', t('cf.go'), startPlan);
+      button('sec', t('cf.avoid'), function () {
+        var av = compute({}, true);
+        if (!av.ok) { toast(t('cf.noAvoid'), 6000); return; }
+        CF.avoid = av; CF.mode = 'avoid'; renderConfirm();
+      });
+    } else {
+      button('', t('cf.start'), startPlan);
+    }
+  }
+
+  function startPlan() {
+    if (!CF) return;
+    var plan = CF.mode === 'avoid' ? CF.avoid : CF.ideal;
+    if (!plan.ok) return;
+    S.avoidNight = CF.mode === 'avoid'; S.target = plan.target; S.done = {};
+    if (S.nowMode) { var st = currentSteps()[0]; if (st) S.done[st.id] = Date.now(); }   // starting right now: the first step is under way
+    S.started = true; save(); recompute();
+    if (!PLAN.ok) { S.started = false; save(); toast(t('toast.impossible')); return; }
+    CF = null;
+    show('now');
+  }
+
+  // ---------- "now" screen ----------
+  var tickTimer;
+  function renderNow() {
+    clearInterval(tickTimer);
+    var when = $('#when');
+    function empty(msg) {
+      $('#nowEyebrow').textContent = ''; $('#nowName').textContent = msg; when.hidden = true; $('#nowSub').textContent = '';
+      $('#nowNeedBox').hidden = true; $('#nowHow').hidden = true; $('#nowDone').hidden = true;
+    }
+    if (!PLAN || !PLAN.ok) { empty(t('notice.none')); return; }
+    var a = activeStep();
+    if (!a) { empty(t('now.finished')); return; }
+    when.hidden = false;
+    $('#nowPhoto').style.backgroundImage = photoUrl(STEP_IMG[a.foto] || 'mood_00');
+    $('#nowName').textContent = L(a.nome);
+    var need = needList(a), nb = $('#nowNeed'); nb.innerHTML = '';
+    need.forEach(function (n) { nb.appendChild(txt('span', 'chip', n)); });
+    $('#nowNeedBox').hidden = !need.length;
+    var due0 = Date.now() >= a.inizio;
+    $('#nowHow').hidden = !due0;
+    $('#nowHowBody').hidden = true;
+    if (due0) { $('#nowInstr').textContent = L(a.istruzioni); $('#nowSignal').textContent = L(a.segnale); }
+    function paint() {
+      var now = Date.now(), due = now >= a.inizio;
+      $('#nowEyebrow').textContent = due ? t('now.due') : t('now.name');
+      $('#nowDone').hidden = !due;
+      if (!due) {
+        $('#whenDay').textContent = dayLabel(a.inizio);
+        $('#whenTime').textContent = hhmm(a.inizio);
+        $('#nowSub').textContent = t('now.inTime', { d: dur(Math.max(1, Math.round((a.inizio - now) / MIN))) });
+      } else if (a.entro > a.inizio) {
+        $('#whenDay').textContent = t('now.latestBy');
+        $('#whenTime').textContent = hhmm(a.entro);
+        $('#nowSub').textContent = now > a.entro ? t('now.late') : '';
+      } else {
+        $('#whenDay').textContent = t('now.right');
+        $('#whenTime').textContent = hhmm(a.inizio);
+        $('#nowSub').textContent = now <= a.inizio + 15 * MIN ? '' : t('now.late');
+      }
+    }
+    paint();
+    tickTimer = setInterval(function () {
+      var nowDue = Date.now() >= a.inizio;
+      if (nowDue !== due0) { renderNow(); return; }
+      paint();
+    }, 15000);
+  }
+
+  // ---------- plan screen ----------
+  function notices() {
+    var box = $('#notices');
+    box.innerHTML = '';
+    if (!PLAN.ok) { box.appendChild(txt('p', 'notice', t('notice.none'))); return; }
+    PLAN.avvisi.forEach(function (a) {
+      if (a.codice === 'target-spostato') {
+        box.appendChild(txt('p', 'notice', t('notice.moved', { day: dayMid(PLAN.target), t: hhmm(PLAN.target), d: dur(Math.abs(a.spostamentoMin)),
+                                                      dir: t(a.spostamentoMin > 0 ? 'notice.later' : 'notice.earlier') })));
+      } else if (a.codice === 'passo-oltre-massimo') {
+        box.appendChild(txt('p', 'notice', t('notice.over')));
+      }
+    });
+  }
+
+  function renderPlan() {
+    if (!PLAN) recompute();
+    notices();
+    var list = $('#timeline'), tabs = $('#dayTabs');
+    list.innerHTML = ''; tabs.innerHTML = '';
+    if (!PLAN.ok) { $('#planSub').textContent = ''; return; }
+    $('#icsHelp').hidden = !IOS; $('#icsHelp').textContent = t('plan.calendarHelpIos');
+    var first = activeStep();
+    $('#planSub').textContent = first ? t('plan.starts', { day: dayMid(first.inizio), t: hhmm(first.inizio) }) : t('plan.allDone');
+
+    var days = [], byKey = {};
+    PLAN.steps.forEach(function (s, i) {
+      if (s.inizio == null) return;
+      var k = dayKey(s.inizio);
+      if (!byKey[k]) { byKey[k] = { key: k, at: s.inizio, items: [] }; days.push(byKey[k]); }
+      byKey[k].items.push({ s: s, i: i });
+    });
+    if (dayIdx == null || dayIdx >= days.length) {
+      var act = first ? dayKey(first.inizio) : null, found = 0;
+      days.forEach(function (d, n) { if (d.key === act) found = n; });
+      dayIdx = found;
+    }
+    days.forEach(function (d, n) {
+      var b = txt('button', n === dayIdx ? 'on' : '', dayShort(d.at)); b.type = 'button'; b.setAttribute('role', 'tab');
+      b.addEventListener('click', function () { dayIdx = n; renderPlan(); });
+      tabs.appendChild(b);
+    });
+
+    var day = days[dayIdx], prev = null;
+    if (S.avoidNight && dayIdx > 0) {
+      var before = days[dayIdx - 1].items[days[dayIdx - 1].items.length - 1].s;
+      if (Planner.blockedIntervals(before.inizio, day.items[0].s.inizio, S.quiet).some(function (iv) { return iv[0] >= before.inizio && iv[1] <= day.items[0].s.inizio; })) list.appendChild(nightRow());
+    }
+    day.items.forEach(function (it) {
+      if (prev && S.avoidNight) {
+        var b = Planner.blockedIntervals(prev.inizio, it.s.inizio, S.quiet).filter(function (iv) { return iv[0] >= prev.inizio && iv[1] <= it.s.inizio; });
+        if (b.length) list.appendChild(nightRow());
+      }
+      list.appendChild(stepItem(it.s, it.i));
+      prev = it.s;
+    });
+  }
+
+  function nightRow() { return txt('li', 'night-row', '☾  ' + t('plan.nightRest', { a: S.quiet.start, b: S.quiet.end })); }
+
+  function stepItem(s) {
+    var li = document.createElement('li');
+    var isNight = S.quietOn && !s.fatto && Flow.isNight(s.inizio, S.quiet);
+    li.className = 'step' + (s.fatto ? ' done' : '') + (isNight ? ' night' : '');
+    var head = document.createElement('button');
+    head.type = 'button'; head.setAttribute('aria-expanded', 'false');
+    head.appendChild(el('span', 'dot'));
+    var time = document.createElement('time'); time.textContent = hhmm(s.inizio);
+    head.appendChild(time);
+    head.appendChild(txt('span', 'name', L(s.nome)));
+    var meta = document.createElement('span'); meta.className = 'meta';
+    if (s.fatto) meta.textContent = t('chip.done');
+    else {
+      var bits = [s.entro > s.inizio ? t('chip.by', { t: hhmm(s.entro) }) : t('chip.exact'), t('chip.then', { d: dur(s.durataMin) })];
+      if (isNight) bits.push(t('plan.night'));
+      if (s.allungato) bits.push(t('chip.long'));
+      if (s.accorciato) bits.push(t('chip.short'));
+      if (s.stimato) bits.push(t('chip.est'));
+      meta.textContent = bits.join(' · ');
+    }
+    head.appendChild(meta);
+
+    var detail = document.createElement('div');
+    detail.className = 'detail'; detail.hidden = true;
+    if (!s.fatto) {
+      var need = needText(s);
+      if (need) detail.appendChild(txt('p', 'grams', need));
+      detail.appendChild(txt('p', '', L(s.istruzioni)));
+      detail.appendChild(txt('p', 'signal', L(s.segnale)));
+      var done = txt('button', '', t('act.done')); done.type = 'button';
+      done.addEventListener('click', function () { markDone(s.id); });
+      detail.appendChild(done);
+    } else {
+      var undo = txt('button', 'secondary', t('act.undo')); undo.type = 'button';
+      undo.addEventListener('click', function () { unmarkDone(s.id); });
+      detail.appendChild(undo);
+    }
+    head.addEventListener('click', function () {
+      var open = detail.hidden;
+      detail.hidden = !open;
+      head.setAttribute('aria-expanded', String(open));
+    });
+    li.appendChild(head); li.appendChild(detail);
+    return li;
+  }
+
+  // ---------- ingredients ----------
   function renderIngredients() {
     var r = currentRecipe(), b = BUILT, body = $('#ingBody');
     body.innerHTML = '';
     if (!r || !b) return;
-    $('#ingTitle').textContent = r.name + ' · ' + Calc.formatG(b.loafG);
-    if (Convert.isYeastRecipe(r)) {
-      var toggle = function (label) {
-        var btn = txt('button', 'link', label); btn.type = 'button';
-        btn.addEventListener('click', function () {
-          if (Object.keys(S.done).length && !confirm(t('plan.resetConfirm'))) return;
-          S.useStarter = !S.useStarter; S.done = {}; save(); build(); renderChoices(); renderSizes(); recompute(); renderIngredients();
-        });
-        return btn;
-      };
-      if (CONV && CONV.converted) {
-        var starterNow = b.ingredients.reduce(function (a, i) { return a + (i.type === 'starter' ? i.g : 0); }, 0);
-        body.appendChild(txt('p', 'hint', t('conv.note', { s: Calc.formatG(starterNow), y: Calc.formatG(CONV.info.yeastG * b.scale), f: CONV.info.factor })));
-        body.appendChild(toggle(t('conv.back')));
-      } else if (CONV) {
-        body.appendChild(txt('p', 'hint', t('conv.skipped')));
-      } else {
-        body.appendChild(toggle(t('conv.use')));
-      }
-    }
-    function list(items) {
-      var ul = document.createElement('ul'); ul.className = 'list';
-      items.forEach(function (it) {
-        var li = document.createElement('li');
-        li.appendChild(txt('span', '', it[0])); li.appendChild(txt('b', '', it[1]));
-        if (it[2]) li.appendChild(txt('i', '', it[2]));
-        ul.appendChild(li);
-      });
-      return ul;
-    }
-    var pc = Calc.bakersPercent(b.ingredients);
-    body.appendChild(txt('div', 'label', t('ing.dough')));
-    body.appendChild(list(b.ingredients.map(function (i, k) { return [i.name, Calc.formatG(i.g), Math.round(pc.byIndex[k]) + ' %']; })));
-    body.appendChild(txt('p', 'hint', t('ing.total', { g: Calc.formatG(Calc.totalWeight(b.ingredients)) })));
+    $('#ingTitle').textContent = r.name;
+    $('#ingSub').textContent = t('card.grams', { g: Calc.formatG(b.loafG) });
+    renderLeaven($('#ingLeaven'));
+    var dough = el('div', 'card'); dough.appendChild(doughRows(b));
+    body.appendChild(txt('div', 'label', t('ing.dough'))); body.appendChild(dough);
     var feeds = b.steps.filter(function (x) { return x.id.indexOf('rinfresco') === 0; });
     if (feeds.length) {
       body.appendChild(txt('div', 'label', t('ing.feeds')));
-      body.appendChild(list(feeds.map(function (f) { return [L(f.nome), gramsText(f)]; })));
+      var fc = el('div', 'card');
+      feeds.forEach(function (f) {
+        var row = el('div', 'row'); row.appendChild(txt('span', '', L(f.nome))); row.appendChild(txt('span', 'v', gramsText(f))); fc.appendChild(row);
+      });
+      body.appendChild(fc);
       if (b.feeds.scaledUp) body.appendChild(txt('p', 'hint', t('ing.scaledUp')));
     }
     var w = waterC();
@@ -838,8 +740,76 @@
     if (w.warning) body.appendChild(txt('p', 'hint', t(w.warning === 'hot' ? 'ing.waterHot' : 'ing.waterCold')));
   }
 
-  function bindRecipeUi() {
-    $('#aiToggle').addEventListener('click', function () { $('#importAi').hidden = !$('#importAi').hidden; $('#importMsg').innerHTML = ''; });
+  // ---------- calendar export ----------
+  function exportCalendar() {
+    if (!PLAN || !PLAN.ok) return;
+    var events = [], uid = Date.now().toString(36);
+    PLAN.steps.forEach(function (s, i) {
+      if (s.fatto || s.inizio == null) return;
+      var lines = [L(s.istruzioni)];
+      var need = needText(s);
+      if (need) lines.unshift(need);
+      if (s.entro > s.inizio) lines.push(t('ics.latest', { t: hhmm(s.entro) }));
+      lines.push(L(s.segnale));
+      events.push({ uid: uid + '-' + i + '@sourdough', start: s.inizio, end: s.inizio + 15 * MIN, summary: L(s.nome),
+                    description: lines.join('\n'), alarms: [10, 0] });
+    });
+    events.push({ uid: uid + '-ready@sourdough', start: PLAN.target, end: PLAN.target + 30 * MIN, summary: t('ics.ready'),
+                  description: '', alarms: [0] });
+    var blob = new Blob([Ics.build(events, { name: 'Sourdough' })], { type: 'text/calendar;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'sourdough-plan.ics';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    toast(t(IOS ? 'toast.calendarIos' : 'toast.calendar'));
+  }
+
+  // ---------- menu sheet ----------
+  function openSheet() { $('#scrim').hidden = false; $('#sheet').hidden = false; }
+  function closeSheet() { $('#scrim').hidden = true; $('#sheet').hidden = true; }
+  function sheetRow(label, fn, cls) {
+    var r = el('button', 'row' + (cls ? ' ' + cls : '')); r.type = 'button';
+    r.appendChild(txt('span', '', label));
+    if (fn) r.addEventListener('click', fn);
+    return r;
+  }
+  function confirmLoss() { return !(S.started && Object.keys(S.done).length) || confirm(t('plan.resetConfirm')); }
+  function openMenu() {
+    var body = $('#sheetBody'); body.innerHTML = '';
+    body.appendChild(sheetRow(t('menu.recipe'), function () { if (!confirmLoss()) return; closeSheet(); show('recipes'); }));
+    if (currentRecipe()) body.appendChild(sheetRow(t('menu.time'), function () { if (!confirmLoss()) return; closeSheet(); show('home'); }));
+    if (S.started && PLAN && PLAN.ok) body.appendChild(sheetRow(t('plan.calendar'), function () { closeSheet(); exportCalendar(); }));
+    var lang = el('div', 'row'); lang.appendChild(txt('span', '', t('menu.language')));
+    var seg = el('div', 'seg'); seg.style.width = '140px';
+    ['it', 'en'].forEach(function (l) {
+      var b = txt('button', S.lang === l ? 'on' : '', l.toUpperCase()); b.type = 'button';
+      b.addEventListener('click', function () { S.lang = l; I18n.set(l); save(); applyLang(); openMenu(); });
+      seg.appendChild(b);
+    });
+    lang.appendChild(seg); body.appendChild(lang);
+    body.appendChild(sheetRow(t('menu.help'), openHelp));
+    if (S.started) body.appendChild(sheetRow(t('menu.reset'), function () {
+      if (Object.keys(S.done).length && !confirm(t('plan.resetConfirm'))) return;
+      S.done = {}; S.started = false; S.avoidNight = false; save(); recompute(); closeSheet(); show('home', { reset: true });
+    }, 'danger'));
+    openSheet();
+  }
+  function openHelp() {
+    var body = $('#sheetBody'); body.innerHTML = '';
+    body.appendChild(txt('h2', '', t('intro.title')));
+    body.appendChild(txt('p', '', t('intro.lead')));
+    ['intro.p1', 'intro.p2', 'intro.p3'].forEach(function (k) { body.appendChild(txt('p', 'soft', t(k))); });
+    var close = txt('button', 'btn', t('menu.close')); close.type = 'button'; close.style.marginTop = '12px'; close.addEventListener('click', closeSheet);
+    body.appendChild(close);
+  }
+
+  // ---------- events ----------
+  function bind() {
+    $('#btnBack').addEventListener('click', goBack);
+    $('#btnMenu').addEventListener('click', openMenu);
+    $('#scrim').addEventListener('click', closeSheet);
+    document.querySelectorAll('#tabs button').forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.tab); }); });
+
     $('#useSample').addEventListener('click', function () { $('#recipeText').value = RecipeImport.SAMPLE[I18n.get()] || RecipeImport.SAMPLE.en; });
     $('#readText').addEventListener('click', function () {
       var text = $('#recipeText').value.trim();
@@ -849,32 +819,52 @@
       if (!r.recipe.ingredients.length) { showMsgs($('#importMsg'), [{ code: 'no-ingredients' }], []); return; }
       openReview(r.recipe, r.warnings);
     });
+    $('#aiLink').addEventListener('click', function () { $('#aiMsg').innerHTML = ''; show('ai'); });
     $('#copyPrompt').addEventListener('click', function () {
       copyText(RecipeImport.promptFor(I18n.get())).then(function () { toast(t('recipe.copied')); }, function () { $('#recipeJson').value = RecipeImport.promptFor(I18n.get()); });
     });
     $('#readJson').addEventListener('click', function () {
       var r = RecipeImport.fromJson($('#recipeJson').value);
-      if (r.errors && r.errors.length) { showMsgs($('#importMsg'), r.errors, []); return; }
+      if (r.errors && r.errors.length) { showMsgs($('#aiMsg'), r.errors, []); return; }
       openReview(r.recipe, r.warnings);
     });
-    $('#importCancel').addEventListener('click', function () { show('home'); });
+
+    $('#cardContinue').addEventListener('click', function () { show('home'); });
+    $('#cardEdit').addEventListener('click', function () { var r = currentRecipe(); if (r) openReview(r, []); });
+    $('#cardOther').addEventListener('click', function () { show('recipes'); });
     $('#rvAdd').addEventListener('click', function () { if (RV) { RV.ing.push({ name: '', g: 0, type: 'other' }); renderReview(); } });
     $('#rvSave').addEventListener('click', saveReview);
-    $('#rvBack').addEventListener('click', function () { show('import'); });
-    $('#againSame').addEventListener('click', function () { show('home'); });
-    $('#againOther').addEventListener('click', function () { $('#againMain').hidden = true; $('#againList').hidden = false; });
-    $('#againNew').addEventListener('click', function () { show('import'); });
+    $('#rvBack').addEventListener('click', goBack);
+    $('#recNew').addEventListener('click', function () { show('import'); });
+
+    function pick(mode) { whenMode = mode; renderHome(); }
+    $('#optNow').addEventListener('click', function () { pick('now'); });
+    $('#optPick').addEventListener('click', function (e) { if (whenMode !== 'pick') pick('pick'); });
+    $('#target').addEventListener('change', function (e) { if (e.target.value) { S.target = new Date(e.target.value).getTime(); save(); } });
+    $('#changeRecipe').addEventListener('click', function () { show('recipes'); });
+    $('#goCustom').addEventListener('click', function () { show('advanced'); });
+    $('#homeContinue').addEventListener('click', continueFromHome);
+
+    $('#advDone').addEventListener('click', goBack);
+    $('#quietOn').addEventListener('change', function (e) { S.quietOn = e.target.checked; $('#quietRow').hidden = !S.quietOn; save(); });
+    $('#quietStart').addEventListener('change', function (e) { if (e.target.value) { S.quiet.start = e.target.value; save(); $('#nightWindow').textContent = t('cu.nightWindow', { a: S.quiet.start, b: S.quiet.end }); } });
+    $('#quietEnd').addEventListener('change', function (e) { if (e.target.value) { S.quiet.end = e.target.value; save(); $('#nightWindow').textContent = t('cu.nightWindow', { a: S.quiet.start, b: S.quiet.end }); } });
+
+    $('#nowDone').addEventListener('click', function () { var a = activeStep(); if (a) markDone(a.id); });
+    $('#nowHowBtn').addEventListener('click', function () { $('#nowHowBody').hidden = !$('#nowHowBody').hidden; });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && PLAN && PLAN.ok && S.started) { recompute(); if (view === 'plan') renderPlan(); if (view === 'now') renderNow(); }
+    });
   }
 
   // ---------- start ----------
   bind();
-  fillForm();
+  paintPhotos();
+  if (!S.target) S.target = defaultTarget();
   build();
   recompute();
+  var planOk = !!(PLAN && PLAN.ok);
   applyLang();
-  var inProgress = (S.view === 'now' || S.view === 'plan' || S.view === 'ingredients') && PLAN && PLAN.ok;
-  if (!S.intro) show('intro');                                  // first time: what the app does
-  else if (!currentRecipe()) show('import');                     // no recipe yet: load one
-  else if (inProgress) show(S.view === 'ingredients' ? 'plan' : S.view);   // a plan is running: carry on
-  else showAgain();                                              // otherwise: same recipe or another?
+  show(Flow.startView(S, planOk), { reset: true });   // a running plan opens on Now; any old saved screen name is ignored
+  if (IOS && !window.navigator.standalone && !S.iosHint) { S.iosHint = true; save(); toast(t('install.text'), 9000); }
 })();
