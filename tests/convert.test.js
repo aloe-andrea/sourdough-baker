@@ -189,4 +189,87 @@ test('fromImported plans feeds for the converted recipe, not for the original', 
   assert.strictEqual(Recipe.fromImported(lean(), 'uno11-uno12', {}).starterG, 0);
 });
 
+
+// ---------- starter to fresh yeast ----------
+function sour(extra) {
+  return Object.assign({
+    name: 'Pane di campagna',
+    ingredients: [
+      { name: 'Flour', g: 500, type: 'flour' },
+      { name: 'Water', g: 350, type: 'water' },
+      { name: 'Starter', g: 100, type: 'starter' },
+      { name: 'Salt', g: 10, type: 'salt' }
+    ],
+    steps: [
+      { phase: 'bulk', minMin: 240, maxMin: 360 },
+      { phase: 'chill', minMin: 480, maxMin: 720 },
+      { phase: 'proof', minMin: 120, maxMin: 180 },
+      { phase: 'bake', minMin: 40, maxMin: 40, tempC: 240 }
+    ],
+    bake: { tempC: 240, minutes: 40 }
+  }, extra || {});
+}
+
+test('starterToYeast: 500 flour, 350 water, 100 starter gives 550 flour, 400 water, 6 yeast', () => {
+  const res = Convert.starterToYeast(sour(), 'Lievito di birra');
+  assert.strictEqual(res.converted, true);
+  assert.strictEqual(res.reason, null);
+  assert.strictEqual(g(res.recipe, 'starter'), 0);
+  assert.strictEqual(g(res.recipe, 'flour'), 550);
+  assert.strictEqual(g(res.recipe, 'water'), 400);
+  assert.strictEqual(g(res.recipe, 'yeast'), 6);
+  assert.strictEqual(g(res.recipe, 'salt'), 10);
+  assert.strictEqual(res.recipe.ingredients.filter(i => i.type === 'yeast')[0].name, 'Lievito di birra');
+  assert.strictEqual(res.info.yeastG, 6);
+  assert.strictEqual(res.info.starterG, 100);
+  assert.strictEqual(res.info.factor, 3);
+});
+
+test('starterToYeast: bulk and proof divided by 3, chill and bake untouched, floors apply', () => {
+  const res = Convert.starterToYeast(sour());
+  assert.deepStrictEqual([step(res.recipe, 'bulk').minMin, step(res.recipe, 'bulk').maxMin], [80, 120]);
+  assert.deepStrictEqual([step(res.recipe, 'proof').minMin, step(res.recipe, 'proof').maxMin], [40, 60]);
+  assert.deepStrictEqual([step(res.recipe, 'chill').minMin, step(res.recipe, 'chill').maxMin], [480, 720]);
+  assert.strictEqual(step(res.recipe, 'bake').minMin, 40);
+  const short = sour({ steps: [{ phase: 'bulk', minMin: 90, maxMin: 120 }, { phase: 'proof', minMin: 45, maxMin: 60 }, { phase: 'bake', minMin: 40, maxMin: 40 }] });
+  const r2 = Convert.starterToYeast(short);
+  assert.deepStrictEqual([step(r2.recipe, 'bulk').minMin, step(r2.recipe, 'bulk').maxMin], [60, 60]);
+  assert.deepStrictEqual([step(r2.recipe, 'proof').minMin, step(r2.recipe, 'proof').maxMin], [30, 30]);
+});
+
+test('starterToYeast: enriched dough divides by 4', () => {
+  const r = sour(); r.ingredients.push({ name: 'Butter', g: 80, type: 'other' });
+  const res = Convert.starterToYeast(r);
+  assert.strictEqual(res.info.factor, 4);
+  assert.deepStrictEqual([step(res.recipe, 'bulk').minMin, step(res.recipe, 'bulk').maxMin], [60, 90]);
+});
+
+test('starterToYeast: two flours get the flour back proportionally', () => {
+  const r = sour(); r.ingredients[0] = { name: 'White', g: 300, type: 'flour' }; r.ingredients.splice(1, 0, { name: 'Rye', g: 200, type: 'flour' });
+  const res = Convert.starterToYeast(r);
+  assert.deepStrictEqual(res.recipe.ingredients.filter(i => i.type === 'flour').map(i => i.g), [330, 220]);
+});
+
+test('starterToYeast: unchanged without a starter, with yeast already present, or with no flour', () => {
+  assert.strictEqual(Convert.starterToYeast(lean()).reason, 'no-starter');
+  const both = sour(); both.ingredients.push({ name: 'Yeast', g: 2, type: 'yeast' });
+  assert.strictEqual(Convert.starterToYeast(both).reason, 'has-yeast');
+  const noflour = sour(); noflour.ingredients = noflour.ingredients.filter(i => i.type !== 'flour');
+  assert.strictEqual(Convert.starterToYeast(noflour).reason, 'too-little-flour');
+  assert.strictEqual(Convert.starterToYeast({ name: 'x' }).converted, false);
+});
+
+test('starterToYeast: input not mutated, no feeds are planned afterwards', () => {
+  const r = sour(); const snap = JSON.parse(JSON.stringify(r));
+  const res = Convert.starterToYeast(r);
+  assert.deepStrictEqual(r, snap);
+  assert.strictEqual(Recipe.fromImported(res.recipe, 'uno11-uno12', {}).starterG, 0);
+});
+
+test('isStarterRecipe: starter and no yeast only', () => {
+  assert.strictEqual(Convert.isStarterRecipe(sour()), true);
+  assert.strictEqual(Convert.isStarterRecipe(lean()), false);
+  assert.strictEqual(Convert.isStarterRecipe({ name: 'x' }), false);
+});
+
 console.log(passed + ' test passati');

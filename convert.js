@@ -58,5 +58,47 @@
     return { recipe: out, converted: true, info: { starterG: starterG, yeastG: yeastG, factor: factor, enriched: enriched }, reason: null };
   }
 
-  return { yeastToStarter: yeastToStarter, isYeastRecipe: isYeastRecipe, STARTER_PCT: STARTER_PCT, ENRICHED_PCT: ENRICHED_PCT, FACTOR_LEAN: FACTOR_LEAN, FACTOR_ENRICHED: FACTOR_ENRICHED };
+
+  // ---------- the other way: starter to fresh yeast ----------
+  var YEAST_PCT = 0.01;                      // fresh yeast as a share of the flour weight
+  var FLOOR_MIN = { bulk: 60, proof: 30 };   // shortest converted rises
+
+  function isStarterRecipe(recipe) {
+    var ing = (recipe && recipe.ingredients) || [];
+    return sum(ing, 'starter') > 0 && !(sum(ing, 'yeast') > 0);
+  }
+
+  // The starter holds equal parts flour and water, so its weight goes back into them; the yeast is 1% of the
+  // flour; the written bulk and proof times shrink by the same factor the other conversion stretches them.
+  function starterToYeast(recipe, yeastName, waterName) {
+    var ing = (recipe && recipe.ingredients) || [];
+    if (!(sum(ing, 'starter') > 0)) return unchanged(recipe, 'no-starter');
+    if (sum(ing, 'yeast') > 0) return unchanged(recipe, 'has-yeast');
+    var flourG = sum(ing, 'flour'), starterG = sum(ing, 'starter'), waterG = sum(ing, 'water');
+    if (!(flourG > 0)) return unchanged(recipe, 'too-little-flour');
+    var half = starterG / 2;
+    var enrichG = ing.reduce(function (a, i) { return a + (i.type === 'other' && i.g > 0 && ENRICHMENT.test(i.name || '') ? i.g : 0); }, 0);
+    var enriched = enrichG / flourG >= ENRICHED_PCT;
+    var factor = enriched ? FACTOR_ENRICHED : FACTOR_LEAN;
+
+    var out = JSON.parse(JSON.stringify(recipe));
+    out.ingredients = out.ingredients.filter(function (i) { return i.type !== 'starter'; });
+    out.ingredients.forEach(function (i) {
+      if (i.type === 'flour' && i.g > 0) i.g = Math.round(i.g + half * i.g / flourG);
+      else if (i.type === 'water' && i.g > 0) i.g = Math.round(i.g + half * i.g / waterG);
+    });
+    if (!(waterG > 0)) out.ingredients.push({ name: waterName || 'Water', g: Math.round(half), type: 'water' });
+    var newFlour = sum(out.ingredients, 'flour');
+    var yeastG = Math.max(1, Math.round(newFlour * YEAST_PCT));
+    out.ingredients.push({ name: yeastName || 'Fresh yeast', g: yeastG, type: 'yeast' });
+    (out.steps || []).forEach(function (s) {
+      if (SCALED_PHASES.indexOf(s.phase) < 0 || !(s.minMin > 0)) return;
+      var floor = FLOOR_MIN[s.phase];
+      s.minMin = Math.max(floor, Math.round(s.minMin / factor));
+      if (s.maxMin > 0) s.maxMin = Math.max(floor, Math.round(s.maxMin / factor));
+    });
+    return { recipe: out, converted: true, info: { yeastG: yeastG, starterG: starterG, factor: factor, enriched: enriched }, reason: null };
+  }
+
+  return { yeastToStarter: yeastToStarter, starterToYeast: starterToYeast, isStarterRecipe: isStarterRecipe, isYeastRecipe: isYeastRecipe, STARTER_PCT: STARTER_PCT, ENRICHED_PCT: ENRICHED_PCT, FACTOR_LEAN: FACTOR_LEAN, FACTOR_ENRICHED: FACTOR_ENRICHED };
 });
