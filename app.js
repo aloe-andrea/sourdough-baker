@@ -533,7 +533,8 @@
     var sm = Flow.summary(plan, { quiet: S.quiet });
     var todo = plan.steps.filter(function (s) { return !s.fatto; }).length;
     $('#cfReady').textContent = dayBrief(plan.target) + ', ' + hhmm(plan.target);
-    $('#cfStarts').textContent = CF.nowMode ? t('cf.startsNow', { n: plan.steps.length }) : t('cf.starts', { day: dayMid(sm.firstAt), t: hhmm(sm.firstAt), n: todo });
+    var underWay = CF.nowMode && Object.keys(CF.mode === 'avoid' ? (CF.avoidDone || {}) : CF.done).length > 0;
+    $('#cfStarts').textContent = underWay ? t('cf.startsNow', { n: plan.steps.length }) : t('cf.starts', { day: dayMid(sm.firstAt), t: hhmm(sm.firstAt), n: todo });
     var night = S.quietOn ? sm.nightSteps : [];
     if (CF.nowMode) {
       var f0 = currentSteps()[0];
@@ -557,9 +558,15 @@
       card.appendChild(pills); notes.appendChild(card);
       button('', t('cf.go'), startPlan);
       button('sec', t('cf.avoid'), function () {
-        var av = compute(CF.done || {}, true, CF.target);
+        var done = CF.done || {}, target = CF.target;
+        if (CF.nowMode) {   // starting now cannot dodge the night: look for the best moment to start instead
+          var er = Planner.earliest({ steps: currentSteps(), tempC: S.tempC, quiet: S.quiet, start: Date.now() });
+          if (!er.ok) { toast(t('cf.noAvoid'), 6000); return; }
+          target = er.target; done = er.delayed ? {} : CF.done;
+        }
+        var av = compute(done, true, target);
         if (!av.ok) { toast(t('cf.noAvoid'), 6000); return; }
-        CF.avoid = av; CF.mode = 'avoid'; renderConfirm();
+        CF.avoid = av; CF.avoidDone = done; CF.mode = 'avoid'; renderConfirm();
       });
     } else {
       button('', t('cf.start'), startPlan);
@@ -570,8 +577,8 @@
     if (!CF) return;
     var plan = CF.mode === 'avoid' ? CF.avoid : CF.ideal;
     if (!plan.ok) return;
-    var done = Object.assign({}, CF.done || {});
-    if (CF.nowMode) { var st = currentSteps()[0]; if (st) done[st.id] = Date.now(); }   // the first step starts now
+    var done = Object.assign({}, CF.mode === 'avoid' ? (CF.avoidDone || {}) : (CF.done || {}));
+    if (CF.nowMode && Object.keys(done).length) { var st = currentSteps()[0]; if (st) done[st.id] = Date.now(); }   // the first step starts now
     var prev = { target: S.target, done: S.done, avoidNight: S.avoidNight, nowMode: S.nowMode, started: S.started };
     S.avoidNight = CF.mode === 'avoid'; S.target = plan.target; S.done = done; S.nowMode = CF.nowMode; S.started = true;
     recompute();
