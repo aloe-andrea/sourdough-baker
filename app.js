@@ -36,6 +36,8 @@
   var CONV = null;       // result of the leaven conversion for the current recipe, or null
   var CF = null;         // the plans offered on the Confirm screen
   var view = null, HIST = [];
+  var pending = { target: null };   // the time picked on When, not saved until the plan is started
+  var tickTimer;
   var dayIdx = null;
 
   // ---------- recipe and leaven ----------
@@ -114,7 +116,7 @@
   function applyLang() {
     build(); recompute();
     document.documentElement.lang = I18n.get();
-    document.title = t('home.title');
+    document.title = 'Sourdough';
     document.querySelectorAll('[data-i18n]').forEach(function (e) { e.textContent = t(e.dataset.i18n); });
     document.querySelectorAll('[data-i18n-ph]').forEach(function (e) { e.placeholder = t(e.dataset.i18nPh); });
     if (view) renderView(view);
@@ -142,8 +144,9 @@
 
   function show(v, opt) {
     opt = opt || {};
-    if (COOK.indexOf(v) >= 0 || opt.reset) HIST = [];
-    else if (view && view !== v && !opt.back) HIST.push(view);
+    if (COOK.indexOf(v) >= 0 || opt.reset) { HIST = []; pending.target = null; }
+    else if (view && view !== v && !opt.back && view !== 'confirm') HIST.push(view);
+    if (v !== 'now') clearInterval(tickTimer);
     view = v; S.view = v; save();
     document.body.className = 't-' + THEME[v];
     document.body.dataset.view = v;
@@ -171,11 +174,11 @@
   }
 
   // ---------- plan ----------
-  function compute(done, avoid) {
+  function compute(done, avoid, target) {
     if (!BUILT) return { ok: false, steps: [], avvisi: [] };
     return Planner.plan({
       steps: currentSteps(),
-      target: S.target, tempC: S.tempC,
+      target: target != null ? target : S.target, tempC: S.tempC,
       quiet: avoid ? S.quiet : null,
       now: Date.now(), done: done
     });
@@ -186,7 +189,10 @@
     return PLAN.steps.filter(function (s) { return !s.fatto; })[0] || null;
   }
 
+  var lastDone = 0;
   function markDone(id) {
+    if (Date.now() - lastDone < 600) return;
+    lastDone = Date.now(); dayIdx = null;
     var next = Object.assign({}, S.done);
     next[id] = Date.now();
     var res = compute(next, S.avoidNight);
@@ -220,6 +226,7 @@
     box.innerHTML = '';
     (errors || []).forEach(function (e) { box.appendChild(txt('p', 'msg err', t('err.' + e.code, { d: e.detail || '' }))); });
     (warnings || []).forEach(function (w) { box.appendChild(txt('p', 'msg warn', t('warn.' + w.code, { d: w.detail || '' }))); });
+    if ((errors || []).length && box.scrollIntoView) box.scrollIntoView({ block: 'nearest' });
   }
 
   function openImport() {
@@ -237,6 +244,7 @@
       .then(function (data) {
         var res = RecipeImport.fromPage(data);
         if (res.errors && res.errors.length) { showMsgs(box, res.errors, []); return; }
+        if (view !== 'import') return;   // the user already left this screen
         box.innerHTML = ''; openReview(res.recipe, res.warnings);
       })
       .catch(function () { showMsgs(box, [{ code: 'link-failed' }], []); })
@@ -414,6 +422,7 @@
       row.appendChild(txt('span', '', rec.name));
       row.appendChild(txt('span', 'v', rec.id === S.recipeId ? '✓' : ''));
       row.addEventListener('click', function () {
+        if (rec.id === S.recipeId && S.started) { goBack(); return; }
         if (rec.id !== S.recipeId) useRecipe(rec.id);
         show('card', { reset: true });
       });
@@ -436,7 +445,8 @@
   function renderHome() {
     if (!currentRecipe()) { show('import', { reset: true }); return; }
     if (!S.target) S.target = defaultTarget();
-    $('#target').value = toLocalInput(S.target);
+    if (pending.target == null) pending.target = S.target;
+    $('#target').value = toLocalInput(pending.target);
     $('#recipeName').textContent = currentRecipe().name;
     $('#whenMsg').innerHTML = '';
     $('#optNow').className = 'opt' + (whenMode === 'now' ? ' on' : '');
@@ -450,27 +460,27 @@
     [[6, 13, 0], [0, 13, 0], [0, 19, 0]].forEach(function (q) {
       var ms = nextDow(q[0], q[1], q[2]);
       var b = txt('button', 'chip', cap(new Date(ms).toLocaleDateString(I18n.locale(), { weekday: 'short' })) + ' ' + pad(q[1]) + ':' + pad(q[2])); b.type = 'button';
-      b.addEventListener('click', function () { S.target = ms; $('#target').value = toLocalInput(ms); save(); });
+      b.addEventListener('click', function () { pending.target = ms; $('#target').value = toLocalInput(ms); });
       box.appendChild(b);
     });
     paintPhotos();
   }
   function continueFromHome() {
     if (!BUILT) return;
+    var target, nowMode;
     if (whenMode === 'now') {
       var res = earliestNow();
       if (!res.ok) { $('#whenMsg').innerHTML = ''; $('#whenMsg').appendChild(txt('p', 'msg err', t('notice.none'))); return; }
-      S.target = res.target; S.nowMode = true;
+      target = res.target; nowMode = true;
     } else {
       var v = $('#target').value;
-      if (!v) return;
-      S.target = new Date(v).getTime(); S.nowMode = false;
+      if (!v) { showMsgs($('#whenMsg'), [{ code: 'no-date' }], []); return; }
+      target = new Date(v).getTime(); nowMode = false;
     }
-    S.done = {};
     var first = currentSteps()[0], startDone = {};
-    if (S.nowMode && first) startDone[first.id] = Date.now();   // starting right now: the first step is under way
-    CF = { done: startDone, ideal: compute(startDone, false), avoid: null, mode: 'ideal' };
-    save(); show('confirm');
+    if (nowMode && first) startDone[first.id] = Date.now();   // starting right now: the first step is under way
+    CF = { target: target, nowMode: nowMode, done: startDone, ideal: compute(startDone, false, target), avoid: null, mode: 'ideal' };
+    show('confirm');
   }
 
   // ---------- customize ----------
@@ -486,8 +496,9 @@
       sb.appendChild(c);
     });
     var ks = $('#kitchenSeg'); ks.innerHTML = '';
+    var temps = [18, 22, 26], nearest = temps.reduce(function (a, k) { return Math.abs(S.tempC - k) < Math.abs(S.tempC - a) ? k : a; }, 22);
     [[18, 'cu.cool'], [22, 'cu.normal'], [26, 'cu.warm']].forEach(function (k) {
-      var on = Math.abs(S.tempC - k[0]) <= 2;
+      var on = k[0] === nearest;
       var bt = el('button', on ? 'on' : '', t(k[1]) + '<small>' + k[0] + ' °C</small>'); bt.type = 'button';
       bt.addEventListener('click', function () { S.tempC = k[0]; save(); recompute(); renderAdvanced(); });
       ks.appendChild(bt);
@@ -522,8 +533,12 @@
     var sm = Flow.summary(plan, { quiet: S.quiet });
     var todo = plan.steps.filter(function (s) { return !s.fatto; }).length;
     $('#cfReady').textContent = dayBrief(plan.target) + ', ' + hhmm(plan.target);
-    $('#cfStarts').textContent = S.nowMode ? t('cf.startsNow', { n: plan.steps.length }) : t('cf.starts', { day: dayMid(sm.firstAt), t: hhmm(sm.firstAt), n: todo });
+    $('#cfStarts').textContent = CF.nowMode ? t('cf.startsNow', { n: plan.steps.length }) : t('cf.starts', { day: dayMid(sm.firstAt), t: hhmm(sm.firstAt), n: todo });
     var night = S.quietOn ? sm.nightSteps : [];
+    if (CF.nowMode) {
+      var f0 = currentSteps()[0];
+      if (f0) notes.appendChild(txt('p', 'notice', t('cf.firstNow', { s: [L(f0.nome), needText(f0)].filter(Boolean).join(' · ') })));
+    }
     plan.avvisi.forEach(function (a) {
       if (a.codice === 'target-spostato') notes.appendChild(txt('p', 'notice', t('notice.moved', { day: dayMid(plan.target), t: hhmm(plan.target), d: dur(Math.abs(a.spostamentoMin)), dir: t(a.spostamentoMin > 0 ? 'notice.later' : 'notice.earlier') })));
     });
@@ -542,7 +557,7 @@
       card.appendChild(pills); notes.appendChild(card);
       button('', t('cf.go'), startPlan);
       button('sec', t('cf.avoid'), function () {
-        var av = compute(CF.done || {}, true);
+        var av = compute(CF.done || {}, true, CF.target);
         if (!av.ok) { toast(t('cf.noAvoid'), 6000); return; }
         CF.avoid = av; CF.mode = 'avoid'; renderConfirm();
       });
@@ -555,15 +570,26 @@
     if (!CF) return;
     var plan = CF.mode === 'avoid' ? CF.avoid : CF.ideal;
     if (!plan.ok) return;
-    S.avoidNight = CF.mode === 'avoid'; S.target = plan.target; S.done = Object.assign({}, CF.done || {});
-    S.started = true; save(); recompute();
-    if (!PLAN.ok) { S.started = false; save(); toast(t('toast.impossible')); return; }
-    CF = null;
-    show('now');
+    var done = Object.assign({}, CF.done || {});
+    if (CF.nowMode) { var st = currentSteps()[0]; if (st) done[st.id] = Date.now(); }   // the first step starts now
+    var prev = { target: S.target, done: S.done, avoidNight: S.avoidNight, nowMode: S.nowMode, started: S.started };
+    S.avoidNight = CF.mode === 'avoid'; S.target = plan.target; S.done = done; S.nowMode = CF.nowMode; S.started = true;
+    recompute();
+    if (!PLAN.ok) {
+      Object.assign(S, prev); recompute(); save();
+      toast(t('toast.impossible')); return;
+    }
+    if (Math.abs(PLAN.target - plan.target) >= MIN) { S.target = PLAN.target; toast(t('toast.moved', { day: dayMid(PLAN.target), t: hhmm(PLAN.target) })); }
+    CF = null; dayIdx = null; pending.target = null;
+    save(); show('now');
+  }
+
+  function resetPlan() {
+    S.done = {}; S.started = false; S.avoidNight = false; S.nowMode = false; dayIdx = null; pending.target = null;
+    save(); recompute(); closeSheet(); show('home', { reset: true });
   }
 
   // ---------- "now" screen ----------
-  var tickTimer;
   function renderNow() {
     clearInterval(tickTimer);
     var when = $('#when');
@@ -573,8 +599,9 @@
     }
     if (!PLAN || !PLAN.ok) { empty(t('notice.none')); return; }
     var a = activeStep();
-    if (!a) { empty(t('now.finished')); return; }
+    if (!a) { empty(t('now.finished')); $('#nowDone').hidden = false; $('#nowDone').textContent = t('now.again'); $('#nowDone').dataset.mode = 'again'; return; }
     when.hidden = false;
+    $('#nowDone').textContent = t('now.done'); $('#nowDone').dataset.mode = '';
     $('#nowPhoto').style.backgroundImage = photoUrl(STEP_IMG[a.foto] || 'mood_00');
     $('#nowName').textContent = L(a.nome);
     var need = needList(a), nb = $('#nowNeed'); nb.innerHTML = '';
@@ -791,7 +818,7 @@
     body.appendChild(sheetRow(t('menu.help'), openHelp));
     if (S.started) body.appendChild(sheetRow(t('menu.reset'), function () {
       if (Object.keys(S.done).length && !confirm(t('plan.resetConfirm'))) return;
-      S.done = {}; S.started = false; S.avoidNight = false; save(); recompute(); closeSheet(); show('home', { reset: true });
+      resetPlan();
     }, 'danger'));
     openSheet();
   }
@@ -841,7 +868,10 @@
     function pick(mode) { whenMode = mode; renderHome(); }
     $('#optNow').addEventListener('click', function () { pick('now'); });
     $('#optPick').addEventListener('click', function (e) { if (whenMode !== 'pick') pick('pick'); });
-    $('#target').addEventListener('change', function (e) { if (e.target.value) { S.target = new Date(e.target.value).getTime(); save(); } });
+    [['#optNow', 'now'], ['#optPick', 'pick']].forEach(function (o) {
+      $(o[0]).addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target === $(o[0])) { e.preventDefault(); pick(o[1]); } });
+    });
+    $('#target').addEventListener('change', function (e) { if (e.target.value) pending.target = new Date(e.target.value).getTime(); });
     $('#changeRecipe').addEventListener('click', function () { show('recipes'); });
     $('#goCustom').addEventListener('click', function () { show('advanced'); });
     $('#homeContinue').addEventListener('click', continueFromHome);
@@ -851,7 +881,10 @@
     $('#quietStart').addEventListener('change', function (e) { if (e.target.value) { S.quiet.start = e.target.value; save(); $('#nightWindow').textContent = t('cu.nightWindow', { a: S.quiet.start, b: S.quiet.end }); } });
     $('#quietEnd').addEventListener('change', function (e) { if (e.target.value) { S.quiet.end = e.target.value; save(); $('#nightWindow').textContent = t('cu.nightWindow', { a: S.quiet.start, b: S.quiet.end }); } });
 
-    $('#nowDone').addEventListener('click', function () { var a = activeStep(); if (a) markDone(a.id); });
+    $('#nowDone').addEventListener('click', function () {
+      if ($('#nowDone').dataset.mode === 'again') { resetPlan(); return; }
+      var a = activeStep(); if (a) markDone(a.id);
+    });
     $('#nowHowBtn').addEventListener('click', function () { $('#nowHowBody').hidden = !$('#nowHowBody').hidden; });
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden && PLAN && PLAN.ok && S.started) { recompute(); if (view === 'plan') renderPlan(); if (view === 'now') renderNow(); }
