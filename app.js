@@ -445,8 +445,9 @@
   function renderHome() {
     if (!currentRecipe()) { show('import', { reset: true }); return; }
     if (!S.target) S.target = defaultTarget();
-    if (pending.target == null) pending.target = S.target;
+    if (pending.target == null || pending.target <= Date.now()) pending.target = S.target > Date.now() ? S.target : defaultTarget();   // never offer a time in the past
     $('#target').value = toLocalInput(pending.target);
+    $('#target').min = toLocalInput(Date.now());
     $('#recipeName').textContent = currentRecipe().name;
     $('#whenMsg').innerHTML = '';
     $('#optNow').className = 'opt' + (whenMode === 'now' ? ' on' : '');
@@ -476,6 +477,7 @@
       var v = $('#target').value;
       if (!v) { showMsgs($('#whenMsg'), [{ code: 'no-date' }], []); return; }
       target = new Date(v).getTime(); nowMode = false;
+      if (!(target > Date.now())) { showMsgs($('#whenMsg'), [{ code: 'past' }], []); return; }
     }
     var first = currentSteps()[0], startDone = {};
     if (nowMode && first) startDone[first.id] = Date.now();   // starting right now: the first step is under way
