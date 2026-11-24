@@ -25,6 +25,12 @@
     <div class="photo" data-img="dough_00"></div>
     <h1 data-i18n="imp.title"></h1>
     <p class="sub" data-i18n="imp.sub"></p>
+    <div id="lastBox" hidden>
+      <div class="label" data-i18n="imp.last"></div>
+      <div class="card"><button type="button" class="row" id="lastBtn"><span><b id="lastName"></b><br><span class="soft small" id="lastSub"></span></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button></div>
+      <button type="button" class="textlink" id="lastOthers" data-i18n="imp.others" hidden></button>
+      <div class="label" data-i18n="imp.new"></div>
+    </div>
     <div class="card pad"><textarea id="recipeText" rows="6" data-i18n-ph="recipe.placeholder"></textarea></div>
     <div id="importMsg" class="msgs"></div>
     <button type="button" class="textlink" id="aiLink" data-i18n="imp.aiLink"></button>

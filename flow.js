@@ -23,7 +23,7 @@
 
   function startView(state, planOk) {
     if (state && state.started && planOk && hasRecipe(state)) return 'now';
-    return hasRecipe(state) ? 'home' : 'import';
+    return 'import';   // a new bake always starts from the recipe; the last recipe is offered there
   }
 
   function migrateView(view, state, planOk) {

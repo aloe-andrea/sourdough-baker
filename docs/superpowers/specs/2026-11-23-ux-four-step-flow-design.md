@@ -135,3 +135,7 @@ Reference mockups: FigJam board https://www.figma.com/board/VAsxZ0PjKllwiwPlB8Cz
 - **AI import** is a screen with three numbered steps, reached from "Non riesce a leggerla? Chiedi aiuto a un'AI".
 - **Confirm** shows "Va bene cosi, avvia" and "Evita la notte" when night steps exist.
 - **Future, not now:** a built-in "create your starter from scratch" routine (daily steps over about a week, readiness check, forward plan). It reuses the stages model of the panettone project.
+
+## Start screen (Andrea, 2026-11-24)
+
+Opening the app always starts from step 1 (the recipe screen), unless a plan is running (then it opens on Now). When a recipe is saved, the recipe screen shows "Your last recipe" as a tappable card (opens its recipe card), an "Other recipes" link when there is more than one, and the new-recipe field below. This replaces the earlier rule that a saved recipe opens straight on When.

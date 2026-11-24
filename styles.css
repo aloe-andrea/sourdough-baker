@@ -172,3 +172,4 @@ body.t-bur .sheet .row.danger { color: #FFB08A; }
 .sheet .seg { margin: 4px 0; }
 .toast { position: fixed; z-index: 50; left: 16px; right: 16px; top: calc(68px + var(--safe-t)); pointer-events: none; margin: 0 auto; max-width: 440px; background: #1A1410; color: #FFF3D6; padding: 12px 16px; border-radius: 14px; font-size: 14px; text-align: center; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+#view-import .photo { height: 170px; }

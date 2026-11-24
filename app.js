@@ -231,6 +231,14 @@
 
   function openImport() {
     $('#importMsg').innerHTML = '';
+    var r = currentRecipe();
+    $('#lastBox').hidden = !r;
+    if (r) {
+      $('#lastName').textContent = r.name;
+      $('#lastSub').textContent = t('card.grams', { g: Calc.formatG(Calc.totalWeight(r.ingredients)) });
+      $('#lastOthers').hidden = S.recipes.length < 2;
+    }
+    paintPhotos();
   }
 
   function readLink(url) {
@@ -856,6 +864,8 @@
       if (!r.recipe.ingredients.length) { showMsgs($('#importMsg'), [{ code: 'no-ingredients' }], []); return; }
       openReview(r.recipe, r.warnings);
     });
+    $('#lastBtn').addEventListener('click', function () { show('card'); });
+    $('#lastOthers').addEventListener('click', function () { show('recipes'); });
     $('#aiLink').addEventListener('click', function () { $('#aiMsg').innerHTML = ''; show('ai'); });
     $('#copyPrompt').addEventListener('click', function () {
       copyText(RecipeImport.promptFor(I18n.get())).then(function () { toast(t('recipe.copied')); }, function () { $('#recipeJson').value = RecipeImport.promptFor(I18n.get()); });

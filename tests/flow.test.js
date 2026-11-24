@@ -29,11 +29,11 @@ test('isNight: null quiet is never night, and a window that does not wrap works'
 test('startView: started and plan ok opens now', () => {
   assert.strictEqual(Flow.startView({ started: true, recipes, recipeId: 'r1' }, true), 'now');
 });
-test('startView: started but plan not ok opens home', () => {
-  assert.strictEqual(Flow.startView({ started: true, recipes, recipeId: 'r1' }, false), 'home');
+test('startView: started but plan not ok opens import', () => {
+  assert.strictEqual(Flow.startView({ started: true, recipes, recipeId: 'r1' }, false), 'import');
 });
-test('startView: not started with a saved recipe opens home', () => {
-  assert.strictEqual(Flow.startView({ started: false, recipes, recipeId: 'r1' }, true), 'home');
+test('startView: not started with a saved recipe still opens import, where the last recipe is offered', () => {
+  assert.strictEqual(Flow.startView({ started: false, recipes, recipeId: 'r1' }, true), 'import');
 });
 test('startView: no recipe, or recipeId pointing nowhere, opens import', () => {
   assert.strictEqual(Flow.startView({ started: true, recipes: [], recipeId: null }, true), 'import');
