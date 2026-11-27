@@ -2,7 +2,7 @@
    App files (pages, scripts, styles) are fetched from the network first, so a normal reload always
    shows the latest version; the cache is only the fallback when you are offline.
    Photos and fonts come from the cache first, since they rarely change. */
-var VERSION = 'sourdough-v21';
+var VERSION = 'sourdough-v22';
 var CORE = ['./', 'index.html', 'styles.css', 'app.js', 'planner.js', 'recipe.js', 'convert.js', 'flow.js', 'i18n.js', 'calc.js', 'recipeimport.js', 'ics.js', 'config.js',
             'manifest.webmanifest', 'assets/icons/icon-192.png', 'assets/icons/icon-512.png',
             'assets/fonts/bricolage-700.ttf', 'assets/fonts/bricolage-800.ttf', 'assets/fonts/dmsans-400.ttf', 'assets/fonts/dmsans-500.ttf', 'assets/fonts/dmsans-600.ttf', 'assets/fonts/dmsans-700.ttf',

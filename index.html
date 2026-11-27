@@ -144,19 +144,12 @@
 
   <!-- 4. COOK -->
   <main id="view-now" class="screen cook" hidden>
-    <div class="mcard">
-      <div class="photo in" id="nowPhoto" data-img="mood_01"></div>
-      <div class="k" id="nowEyebrow"></div>
-      <div class="name" id="nowName"></div>
-      <div class="when" id="when"><span class="day" id="whenDay"></span><span class="time" id="whenTime"></span></div>
-      <p class="line" id="nowSub"></p>
+    <div class="carousel" id="nowCarousel"></div>
+    <div class="mcard" id="nowEmpty" hidden><div class="name" id="nowEmptyText"></div></div>
+    <div class="cta-wrap above-tabs">
+      <button type="button" class="btn" id="nowDone" hidden></button>
+      <button type="button" class="btn sec" id="nowBack" hidden data-i18n="now.backToCurrent"></button>
     </div>
-    <div id="nowNeedBox" hidden><div class="label" data-i18n="now.needLabel"></div><div class="chips" id="nowNeed"></div></div>
-    <div class="card" id="nowHow" hidden>
-      <button type="button" class="row" id="nowHowBtn"><span data-i18n="now.howto"></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
-      <div id="nowHowBody" class="howbody" hidden><p id="nowInstr"></p><p class="signal" id="nowSignal"></p></div>
-    </div>
-    <div class="cta-wrap above-tabs"><button type="button" class="btn" id="nowDone" data-i18n="now.done" hidden></button></div>
   </main>
 
   <main id="view-plan" class="screen cook" hidden>

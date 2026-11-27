@@ -599,51 +599,92 @@
     save(); recompute(); closeSheet(); show('home', { reset: true });
   }
 
-  // ---------- "now" screen ----------
+  // ---------- "now" screen: the current step, with the other steps a swipe away ----------
+  var NOW = { idx: 0, active: -1 };
+
+  function stepTimes(s, active) {
+    var now = Date.now(), r = { eyebrow: '', day: '', time: '', sub: '' };
+    if (s.fatto) { r.eyebrow = t('chip.done'); r.day = dayLabel(s.inizio); r.time = hhmm(s.inizio); return r; }
+    if (!active) {
+      r.eyebrow = t('now.preview'); r.day = dayLabel(s.inizio); r.time = hhmm(s.inizio);
+      r.sub = now < s.inizio ? t('now.inTime', { d: dur(Math.max(1, Math.round((s.inizio - now) / MIN))) }) : '';
+      return r;
+    }
+    var due = now >= s.inizio;
+    r.eyebrow = due ? t('now.due') : t('now.name');
+    if (!due) { r.day = dayLabel(s.inizio); r.time = hhmm(s.inizio); r.sub = t('now.inTime', { d: dur(Math.max(1, Math.round((s.inizio - now) / MIN))) }); }
+    else if (s.entro > s.inizio) { r.day = t('now.latestBy'); r.time = hhmm(s.entro); r.sub = now > s.entro ? t('now.late') : ''; }
+    else { r.day = t('now.right'); r.time = hhmm(s.inizio); r.sub = now <= s.inizio + 15 * MIN ? '' : t('now.late'); }
+    return r;
+  }
+
+  function fillSlide(el, s, i, n, active) {
+    el.innerHTML = '';
+    var tm = stepTimes(s, active);
+    var card = el.appendChild(el_('div', 'mcard'));
+    var ph = card.appendChild(el_('div', 'photo in')); ph.style.backgroundImage = photoUrl(STEP_IMG[s.foto] || 'mood_00');
+    card.appendChild(txt('div', 'k', tm.eyebrow + ' · ' + t('now.stepOf', { i: i + 1, n: n })));
+    card.appendChild(txt('div', 'name', L(s.nome)));
+    var when = card.appendChild(el_('div', 'when'));
+    when.appendChild(txt('span', 'day', tm.day)); when.appendChild(txt('span', 'time', tm.time));
+    if (tm.sub) card.appendChild(txt('p', 'line', tm.sub));
+    if (s.fatto) return;
+    var need = needList(s);
+    if (need.length) {
+      el.appendChild(txt('div', 'label', t('now.needLabel')));
+      var chips = el.appendChild(el_('div', 'chips'));
+      need.forEach(function (x) { chips.appendChild(txt('span', 'chip', x)); });
+    }
+    var how = el.appendChild(el_('div', 'card'));
+    var btn = how.appendChild(el_('button', 'row')); btn.type = 'button';
+    btn.appendChild(txt('span', '', t('now.howto')));
+    btn.insertAdjacentHTML('beforeend', '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>');
+    var body = how.appendChild(el_('div', 'howbody')); body.hidden = true;
+    body.appendChild(txt('p', '', L(s.istruzioni))); body.appendChild(txt('p', 'signal', L(s.segnale)));
+    btn.addEventListener('click', function () { body.hidden = !body.hidden; });
+  }
+  function el_(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
+
+  function nowButtons() {
+    var a = activeStep(), onActive = NOW.idx === NOW.active;
+    $('#nowDone').hidden = !(a && onActive && Date.now() >= a.inizio);
+    $('#nowBack').hidden = !a || onActive;
+  }
+
   function renderNow() {
     clearInterval(tickTimer);
-    var when = $('#when');
-    function empty(msg) {
-      $('#nowEyebrow').textContent = ''; $('#nowName').textContent = msg; when.hidden = true; $('#nowSub').textContent = '';
-      $('#nowNeedBox').hidden = true; $('#nowHow').hidden = true; $('#nowDone').hidden = true;
+    var car = $('#nowCarousel'), empty = $('#nowEmpty'), done = $('#nowDone');
+    car.innerHTML = '';
+    var a = PLAN && PLAN.ok ? activeStep() : null;
+    if (!a) {
+      car.hidden = true; empty.hidden = false;
+      $('#nowEmptyText').textContent = PLAN && PLAN.ok ? t('now.finished') : t('notice.none');
+      $('#nowBack').hidden = true;
+      done.hidden = !(PLAN && PLAN.ok); done.textContent = t('now.again'); done.dataset.mode = 'again';
+      return;
     }
-    if (!PLAN || !PLAN.ok) { empty(t('notice.none')); return; }
-    var a = activeStep();
-    if (!a) { empty(t('now.finished')); $('#nowDone').hidden = false; $('#nowDone').textContent = t('now.again'); $('#nowDone').dataset.mode = 'again'; return; }
-    when.hidden = false;
-    $('#nowDone').textContent = t('now.done'); $('#nowDone').dataset.mode = '';
-    $('#nowPhoto').style.backgroundImage = photoUrl(STEP_IMG[a.foto] || 'mood_00');
-    $('#nowName').textContent = L(a.nome);
-    var need = needList(a), nb = $('#nowNeed'); nb.innerHTML = '';
-    need.forEach(function (n) { nb.appendChild(txt('span', 'chip', n)); });
-    $('#nowNeedBox').hidden = !need.length;
-    var due0 = Date.now() >= a.inizio;
-    $('#nowHow').hidden = !due0;
-    $('#nowHowBody').hidden = true;
-    if (due0) { $('#nowInstr').textContent = L(a.istruzioni); $('#nowSignal').textContent = L(a.segnale); }
-    function paint() {
-      var now = Date.now(), due = now >= a.inizio;
-      $('#nowEyebrow').textContent = due ? t('now.due') : t('now.name');
-      $('#nowDone').hidden = !due;
-      if (!due) {
-        $('#whenDay').textContent = dayLabel(a.inizio);
-        $('#whenTime').textContent = hhmm(a.inizio);
-        $('#nowSub').textContent = t('now.inTime', { d: dur(Math.max(1, Math.round((a.inizio - now) / MIN))) });
-      } else if (a.entro > a.inizio) {
-        $('#whenDay').textContent = t('now.latestBy');
-        $('#whenTime').textContent = hhmm(a.entro);
-        $('#nowSub').textContent = now > a.entro ? t('now.late') : '';
-      } else {
-        $('#whenDay').textContent = t('now.right');
-        $('#whenTime').textContent = hhmm(a.inizio);
-        $('#nowSub').textContent = now <= a.inizio + 15 * MIN ? '' : t('now.late');
-      }
-    }
-    paint();
+    car.hidden = false; empty.hidden = true;
+    done.textContent = t('now.done'); done.dataset.mode = '';
+    var steps = PLAN.steps, n = steps.length, activeIdx = steps.indexOf(a), slides = [];
+    steps.forEach(function (s, i) {
+      var sl = el_('div', 'slide'); fillSlide(sl, s, i, n, i === activeIdx); car.appendChild(sl); slides.push(sl);
+    });
+    NOW.active = activeIdx; NOW.idx = activeIdx;
+    car.scrollLeft = slides[activeIdx].offsetLeft - car.offsetLeft - parseFloat(getComputedStyle(car).paddingLeft || 0);
+    var raf = 0;
+    car.onscroll = function () {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(function () {
+        var step = slides[0].offsetWidth + 12, idx = Math.max(0, Math.min(n - 1, Math.round(car.scrollLeft / step)));
+        if (idx !== NOW.idx) { NOW.idx = idx; nowButtons(); }
+      });
+    };
+    nowButtons();
     tickTimer = setInterval(function () {
-      var nowDue = Date.now() >= a.inizio;
-      if (nowDue !== due0) { renderNow(); return; }
-      paint();
+      var cur = activeStep();
+      if (!cur || steps.indexOf(cur) !== activeIdx) { renderNow(); return; }
+      fillSlide(slides[activeIdx], a, activeIdx, n, true);
+      nowButtons();
     }, 15000);
   }
 
@@ -897,7 +938,10 @@
       if ($('#nowDone').dataset.mode === 'again') { resetPlan(); return; }
       var a = activeStep(); if (a) markDone(a.id);
     });
-    $('#nowHowBtn').addEventListener('click', function () { $('#nowHowBody').hidden = !$('#nowHowBody').hidden; });
+    $('#nowBack').addEventListener('click', function () {
+      var sl = $('#nowCarousel').children[NOW.active];
+      if (sl) sl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    });
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden && PLAN && PLAN.ok && S.started) { recompute(); if (view === 'plan') renderPlan(); if (view === 'now') renderNow(); }
     });
