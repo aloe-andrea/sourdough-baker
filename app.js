@@ -447,8 +447,9 @@
     d.setDate(d.getDate() + add);
     return d.getTime();
   }
-  function earliestNow() {
-    return Planner.earliest({ steps: currentSteps(), tempC: S.tempC, quiet: null, start: Date.now() });
+  function nextQuarter() { var g = 15 * MIN; return Math.ceil(Date.now() / g) * g; }
+  function earliestNow(quiet) {
+    return Planner.earliest({ steps: currentSteps(), tempC: S.tempC, quiet: quiet || null, start: nextQuarter() });
   }
   function renderHome() {
     if (!currentRecipe()) { show('import', { reset: true }); return; }
@@ -487,9 +488,7 @@
       target = new Date(v).getTime(); nowMode = false;
       if (!(target > Date.now())) { showMsgs($('#whenMsg'), [{ code: 'past' }], []); return; }
     }
-    var first = currentSteps()[0], startDone = {};
-    if (nowMode && first) startDone[first.id] = Date.now();   // starting right now: the first step is under way
-    CF = { target: target, nowMode: nowMode, done: startDone, ideal: compute(startDone, false, target), avoid: null, mode: 'ideal' };
+    CF = { target: target, nowMode: nowMode, done: {}, ideal: compute({}, false, target), avoid: null, mode: 'ideal' };
     show('confirm');
   }
 
@@ -543,13 +542,8 @@
     var sm = Flow.summary(plan, { quiet: S.quiet });
     var todo = plan.steps.filter(function (s) { return !s.fatto; }).length;
     $('#cfReady').textContent = dayBrief(plan.target) + ', ' + hhmm(plan.target);
-    var underWay = CF.nowMode && Object.keys(CF.mode === 'avoid' ? (CF.avoidDone || {}) : CF.done).length > 0;
-    $('#cfStarts').textContent = underWay ? t('cf.startsNow', { n: plan.steps.length }) : t('cf.starts', { day: dayMid(sm.firstAt), t: hhmm(sm.firstAt), n: todo });
+    $('#cfStarts').textContent = t('cf.starts', { day: dayMid(sm.firstAt), t: hhmm(sm.firstAt), n: todo });
     var night = S.quietOn ? sm.nightSteps : [];
-    if (CF.nowMode) {
-      var f0 = currentSteps()[0];
-      if (f0) notes.appendChild(txt('p', 'notice', t('cf.firstNow', { s: [L(f0.nome), needText(f0)].filter(Boolean).join(' · ') })));
-    }
     plan.avvisi.forEach(function (a) {
       if (a.codice === 'target-spostato') notes.appendChild(txt('p', 'notice', t('notice.moved', { day: dayMid(plan.target), t: hhmm(plan.target), d: dur(Math.abs(a.spostamentoMin)), dir: t(a.spostamentoMin > 0 ? 'notice.later' : 'notice.earlier') })));
     });
@@ -568,15 +562,15 @@
       card.appendChild(pills); notes.appendChild(card);
       button('', t('cf.go'), startPlan);
       button('sec', t('cf.avoid'), function () {
-        var done = CF.done || {}, target = CF.target;
+        var target = CF.target;
         if (CF.nowMode) {   // starting now cannot dodge the night: look for the best moment to start instead
-          var er = Planner.earliest({ steps: currentSteps(), tempC: S.tempC, quiet: S.quiet, start: Date.now() });
+          var er = earliestNow(S.quiet);
           if (!er.ok) { toast(t('cf.noAvoid'), 6000); return; }
-          target = er.target; done = er.delayed ? {} : CF.done;
+          target = er.target;
         }
-        var av = compute(done, true, target);
+        var av = compute({}, true, target);
         if (!av.ok) { toast(t('cf.noAvoid'), 6000); return; }
-        CF.avoid = av; CF.avoidDone = done; CF.mode = 'avoid'; renderConfirm();
+        CF.avoid = av; CF.mode = 'avoid'; renderConfirm();
       });
     } else {
       button('', t('cf.start'), startPlan);
@@ -587,8 +581,7 @@
     if (!CF) return;
     var plan = CF.mode === 'avoid' ? CF.avoid : CF.ideal;
     if (!plan.ok) return;
-    var done = Object.assign({}, CF.mode === 'avoid' ? (CF.avoidDone || {}) : (CF.done || {}));
-    if (CF.nowMode && Object.keys(done).length) { var st = currentSteps()[0]; if (st) done[st.id] = Date.now(); }   // the first step starts now
+    var done = {};
     var prev = { target: S.target, done: S.done, avoidNight: S.avoidNight, nowMode: S.nowMode, started: S.started };
     S.avoidNight = CF.mode === 'avoid'; S.target = plan.target; S.done = done; S.nowMode = CF.nowMode; S.started = true;
     recompute();
